@@ -4,7 +4,7 @@ import com.example.zongshe1.config.ApplicationProperties;
 import com.example.zongshe1.dto.api.AdminLoginRequest;
 import com.example.zongshe1.dto.api.AdminLoginResponse;
 import com.example.zongshe1.service.AdminService;
-import com.example.zongshe1.util.JwtUtil;
+import com.example.zongshe1.common.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;

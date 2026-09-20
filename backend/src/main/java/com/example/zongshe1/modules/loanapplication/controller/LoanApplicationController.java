@@ -3,7 +3,7 @@ package com.example.zongshe1.controller;
 import com.example.zongshe1.dto.LoanApplicationDTO;
 import com.example.zongshe1.dto.api.LoanApplicationRequest;
 import com.example.zongshe1.service.LoanApplicationService;
-import com.example.zongshe1.util.JwtUtil;
+import com.example.zongshe1.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
