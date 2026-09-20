@@ -1,6 +1,6 @@
 package com.example.zongshe1.config;
 
-import com.example.zongshe1.util.JwtUtil;
+import com.example.zongshe1.common.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

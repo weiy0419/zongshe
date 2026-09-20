@@ -2,7 +2,7 @@ package com.example.zongshe1.controller;
 
 import com.example.zongshe1.dto.AdminContractViewDTO;
 import com.example.zongshe1.service.ContractService;
-import com.example.zongshe1.util.JwtUtil;
+import com.example.zongshe1.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

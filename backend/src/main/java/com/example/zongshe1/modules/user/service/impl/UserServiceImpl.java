@@ -8,7 +8,7 @@ import com.example.zongshe1.repository.UserRepository;
 import com.example.zongshe1.service.CreditScoreCalculator;
 import com.example.zongshe1.service.UserService;
 import com.example.zongshe1.util.EncryptionUtil;
-import com.example.zongshe1.util.JwtUtil;
+import com.example.zongshe1.common.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

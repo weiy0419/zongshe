@@ -1,4 +1,4 @@
-package com.example.zongshe1.util;
+package com.example.zongshe1.common.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

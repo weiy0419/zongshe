@@ -4,7 +4,7 @@ import com.example.zongshe1.dto.RepayPlanDTO;
 import com.example.zongshe1.dto.RepaymentRecordDTO;
 import com.example.zongshe1.dto.api.RepayRequest;
 import com.example.zongshe1.service.RepaymentService;
-import com.example.zongshe1.util.JwtUtil;
+import com.example.zongshe1.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
