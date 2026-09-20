@@ -63,6 +63,10 @@ public class LoanApplication {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    // 在 LoanApplication 实体类中添加/确认 usage 字段
+    @Column(name = "usage_purpose") // 或 "usage"
+    private String usage;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
