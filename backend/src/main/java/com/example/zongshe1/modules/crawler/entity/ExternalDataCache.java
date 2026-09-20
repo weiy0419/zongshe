@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "t_external_data_cache", indexes = {
-        @Index(name = "idx_cache_lookup", columnList = "sourceType,idCardNumber,phoneNumber")
+        @Index(name = "idx_cache_lookup", columnList = "source_type,id_card_number,phone_number"),
+        @Index(name = "idx_cache_lookup_key", columnList = "source_type,lookup_key")
 })
 @Data
 public class ExternalDataCache {
@@ -24,6 +25,9 @@ public class ExternalDataCache {
 
     @Column(name = "phone_number", length = 11)
     private String phoneNumber;
+
+    @Column(name = "lookup_key", length = 128)
+    private String lookupKey;
 
     @Column(name = "payload_json", columnDefinition = "TEXT", nullable = false)
     private String payloadJson;

@@ -15,4 +15,15 @@ public interface ExternalDataCacheRepository extends JpaRepository<ExternalDataC
 
     Optional<ExternalDataCache> findFirstBySourceTypeAndExpiresAtAfterOrderByCrawledAtDesc(
             String sourceType, LocalDateTime now);
+
+    Optional<ExternalDataCache> findFirstBySourceTypeAndLookupKeyAndExpiresAtAfterOrderByCrawledAtDesc(
+            String sourceType,
+            String lookupKey,
+            LocalDateTime now
+    );
+
+    Optional<ExternalDataCache> findFirstBySourceTypeAndLookupKeyOrderByCrawledAtDesc(
+            String sourceType,
+            String lookupKey
+    );
 }

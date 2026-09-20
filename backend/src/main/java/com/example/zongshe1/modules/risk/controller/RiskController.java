@@ -5,6 +5,7 @@ import com.example.zongshe1.entity.RiskReport;
 import com.example.zongshe1.common.dto.RiskAssessmentRequest;
 import com.example.zongshe1.common.enums.RiskReasonCode;
 import com.example.zongshe1.common.dto.RiskReportDTO;
+import com.example.zongshe1.modules.risk.feature.RiskFeatureQueryService;
 import com.example.zongshe1.service.RiskService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +29,8 @@ import java.util.Map;
 public class RiskController {
 
     private final RiskService riskService;
+
+    private final RiskFeatureQueryService riskFeatureQueryService;
 
     @PostMapping("/assess")
     @Operation(summary = "风险评估（第1周契约版）", description = "返回固定 Mock 结果，字段名按终稿约定，便于前端和信贷服务对接")
@@ -84,6 +87,20 @@ public class RiskController {
         return ResponseEntity.ok(report);
     }
 
+    @GetMapping("/features/{userId}")
+    @Operation(
+            summary = "查询用户风控特征快照",
+            description = "根据用户ID查询失信、LPR等外部特征"
+    )
+    public ResponseEntity<FeatureSnapshotDTO> getFeatures(
+            @PathVariable Long userId
+    ){
+
+        FeatureSnapshotDTO snapshot =
+                riskFeatureQueryService.query(userId);
+
+        return ResponseEntity.ok(snapshot);
+    }
 
     @GetMapping("/applications/{applicationId}/assessment")
     @Operation(summary = "获取风控评估详情", description = "查询贷款申请的风控评估结果，无报告时自动执行评估")
