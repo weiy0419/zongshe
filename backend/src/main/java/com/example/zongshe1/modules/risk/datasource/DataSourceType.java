@@ -6,5 +6,7 @@ package com.example.zongshe1.modules.risk.datasource;
 public enum DataSourceType {
     CREDIT_BUREAU,
     TELECOM,
+    DISHONEST_PUBLIC,
+    MACRO_LPR,
     INTERNAL_DB
 }
