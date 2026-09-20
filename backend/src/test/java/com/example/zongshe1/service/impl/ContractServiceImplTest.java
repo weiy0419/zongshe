@@ -6,7 +6,7 @@ import com.example.zongshe1.entity.Contract;
 import com.example.zongshe1.entity.DisburseRecord;
 import com.example.zongshe1.entity.LoanApplication;
 import com.example.zongshe1.entity.User;
-import com.example.zongshe1.exception.BusinessException;
+import com.example.zongshe1.common.exception.BusinessException;
 import com.example.zongshe1.repository.ContractRepository;
 import com.example.zongshe1.repository.DisburseRecordRepository;
 import com.example.zongshe1.repository.LoanApplicationRepository;

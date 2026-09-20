@@ -1,7 +1,7 @@
 package com.example.zongshe1.service.impl;
 
 import com.example.zongshe1.common.constants.ContractStatus;
-import com.example.zongshe1.exception.BusinessException;
+import com.example.zongshe1.common.exception.BusinessException;
 import com.example.zongshe1.dto.AdminContractViewDTO;
 import com.example.zongshe1.entity.Contract;
 import com.example.zongshe1.entity.DisburseRecord;
