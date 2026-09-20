@@ -1,4 +1,4 @@
-package com.example.zongshe1.exception;
+package com.example.zongshe1.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
