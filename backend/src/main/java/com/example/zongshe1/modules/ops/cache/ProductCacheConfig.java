@@ -18,4 +18,13 @@ public class ProductCacheConfig {
                 .recordStats()
                 .build();
     }
+
+    @Bean
+    public Cache<String, byte[]> productNullCache(ProductCacheProperties props) {
+        return Caffeine.newBuilder()
+                .maximumSize(props.getMaxSize())
+                .expireAfterWrite(Duration.ofSeconds(props.getNullTtlSeconds()))
+                .recordStats()
+                .build();
+    }
 }

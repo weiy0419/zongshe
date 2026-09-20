@@ -11,4 +11,6 @@ public class ProductCacheProperties {
     private boolean enabled = true;
     private long ttlSeconds = 90;
     private long maxSize = 256;
+    private long l2TtlSeconds = 300;
+    private long nullTtlSeconds = 30;
 }
