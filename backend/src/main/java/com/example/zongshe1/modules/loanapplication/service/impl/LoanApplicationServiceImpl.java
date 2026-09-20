@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -36,6 +37,7 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
     private final RiskReportRepository riskReportRepository;
     private final List<CreditScoreCalculator> creditScoreCalculators;
     private final ContractService contractService;
+    private RestTemplate restTemplate = new RestTemplate(); // 用于调用薛雨宸和岳炜杰的接口
 
     @Override
     public List<LoanApplicationDTO> getApplications(String status, String loanType, String search) {
@@ -211,13 +213,34 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
             loanApplicationRepository.save(application);
             updateCreditByEvent(application, "SUBMIT");
 
-            // 7. 触发风控评估（评分卡 + 规则链）
-            Map<String, Object> riskAssessment = null;
-            try {
-                riskAssessment = riskService.performRiskAssessment(application.getId());
-            } catch (Exception riskEx) {
-                log.error("贷款申请风控评估失败：applicationId={}", application.getId(), riskEx);
-            }
+            // 7. 触发风控评估（对接薛雨宸策略 + 岳炜杰风控评估）[cite: 2, 3]
+        Map<String, Object> riskAssessment = null;
+        try {
+    // 7.1 调用薛雨宸的接口获取启用的风控模型[cite: 2, 3]
+    String policyUrl = "http://localhost:8080/api/ops/risk-policy";
+    Map<String, Object> policyResponse = restTemplate.getForObject(policyUrl, Map.class);
+    log.info("获取风控策略成功: {}", policyResponse);
+
+    // 7.2 调用岳炜杰的风控评估接口
+    String assessUrl = "http://localhost:8080/api/risk/assess";
+    Map<String, Object> assessRequest = new HashMap<>();
+    assessRequest.put("applicationId", application.getId());
+    if (policyResponse != null && policyResponse.containsKey("enabledModels")) {
+        assessRequest.put("enabledModels", policyResponse.get("enabledModels"));
+    }
+
+    riskAssessment = restTemplate.postForObject(assessUrl, assessRequest, Map.class);
+    log.info("风控评估结果: {}", riskAssessment);
+
+} catch (Exception riskEx) {
+    // 容错机制：接口超时或调不通时，不阻断申贷流程，标记为 RISK_PENDING
+    log.error("调用风控评估接口超时或失败，转为风控待处理状态: applicationId={}", application.getId(), riskEx);
+    application.setStatus("RISK_PENDING");
+    loanApplicationRepository.save(application);
+}
+
+// 8. 预留发送 loan.applied MQ 消息
+sendLoanAppliedMQ(application);
 
             // 8. 返回结果
             result.put("success", true);
@@ -360,4 +383,16 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
                 .ifPresent(calculator -> calculator.updateCreditScoreByLoanEvent(
                         application.getUser().getUserId(), application, eventType));
     }
+
+    /**
+ * 预留发送申贷成功 MQ 消息[cite: 2]
+ */
+private void sendLoanAppliedMQ(LoanApplication application) {
+    try {
+        // TODO: rabbitTemplate.convertAndSend("loan.exchange", "loan.applied", application.getApplicationNo());
+        log.info("[MQ 预留] 成功发送申贷消息 loan.applied，申请单号: {}", application.getApplicationNo());
+    } catch (Exception e) {
+        log.warn("[MQ 预留] 发送申贷消息失败", e);
+    }
+}
 }
