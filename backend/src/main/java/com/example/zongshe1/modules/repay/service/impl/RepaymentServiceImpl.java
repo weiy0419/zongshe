@@ -6,7 +6,7 @@ import com.example.zongshe1.dto.RepaymentRecordDTO;
 import com.example.zongshe1.dto.api.RepayRequest;
 import com.example.zongshe1.entity.LoanApplication;
 import com.example.zongshe1.entity.RepaymentRecord;
-import com.example.zongshe1.exception.BusinessException;
+import com.example.zongshe1.common.exception.BusinessException;
 import com.example.zongshe1.modules.repay.entity.RepayPlan;
 import com.example.zongshe1.repository.LoanApplicationRepository;
 import com.example.zongshe1.repository.RepayPlanRepository;

@@ -1,0 +1,86 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      # 前端在另一端口（如 Vite 5173）访问网关时，浏览器会发 OPTIONS 预检。
+      # 跨域放在大门上处理，不必改信贷/风控代码。
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+      routes:
+        # ----- 风控（业务服务 2）-----
+        # 过渡期默认仍转到主业务 8080（风控包尚未迁出）。
+        # 拆成独立 risk-service 后启动前设置：
+        #   $env:RISK_SERVICE_URI="http://127.0.0.1:8081"
+        # 须写在 /api/admin/** 之前，否则爬虫接口会被主业务抢走。
+        - id: risk-api
+          uri: ${RISK_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            # /** 匹配不到无后续路径的列表接口，须同时写精确路径
+            - Path=/api/risk,/api/risk/**,/api/credit,/api/credit/**,/api/admin/crawler,/api/admin/crawler/**
+
+        # ----- 主业务（信贷 + 平台，业务服务 1）-----
+        - id: credit-users
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/users,/api/users/**
+
+        - id: credit-admin
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/admin,/api/admin/**
+
+        - id: credit-auth
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/auth,/api/auth/**
+
+        - id: main-products
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/products,/api/products/**
+
+        - id: main-loan-applications
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/loan-applications,/api/loan-applications/**
+
+        - id: main-loans
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/loans,/api/loans/**
+
+        - id: main-contracts
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/contracts,/api/contracts/**
+
+        - id: main-repayment
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/repayment,/api/repayment/**
+
+        - id: main-ops
+          uri: ${MAIN_SERVICE_URI:http://127.0.0.1:8080}
+          predicates:
+            - Path=/api/ops,/api/ops/**,/api/audit,/api/audit/**,/api/statistics,/api/statistics/**,/api/settings,/api/settings/**
+
+# 启动后看控制台是否出现转发，排查 404 时打开
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.client: INFO

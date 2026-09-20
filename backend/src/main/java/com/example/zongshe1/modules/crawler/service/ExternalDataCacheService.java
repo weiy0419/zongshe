@@ -31,6 +31,29 @@ public class ExternalDataCacheService {
         return row.flatMap(this::parsePayload);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<Map<String, Object>> getExactPayload(String sourceType, String lookupKey) {
+        LocalDateTime now = LocalDateTime.now();
+
+        return repository
+                .findFirstBySourceTypeAndLookupKeyAndExpiresAtAfterOrderByCrawledAtDesc(
+                        sourceType,
+                        lookupKey,
+                        now
+                )
+                .flatMap(this::parsePayload);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Map<String, Object>> getLatestPayload(String sourceType, String lookupKey) {
+        return repository
+                .findFirstBySourceTypeAndLookupKeyOrderByCrawledAtDesc(
+                        sourceType,
+                        lookupKey
+                )
+                .flatMap(this::parsePayload);
+    }
+
     @Transactional
     public void save(String sourceType, String idCard, String phone, Map<String, Object> payload,
                      String sourceUrl, int ttlHours) {
@@ -42,6 +65,30 @@ public class ExternalDataCacheService {
         cache.setCrawlSourceUrl(sourceUrl);
         cache.setCrawledAt(LocalDateTime.now());
         cache.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
+        repository.save(cache);
+    }
+
+    @Transactional
+    public void saveByLookupKey(String sourceType,
+                                String lookupKey,
+                                Map<String, Object> payload,
+                                String sourceUrl,
+                                int ttlHours) {
+
+        ExternalDataCache cache = new ExternalDataCache();
+
+        cache.setSourceType(sourceType);
+        cache.setLookupKey(lookupKey);
+
+        // 兼容旧表字段，不给身份证号和手机号塞第三周的数据
+        cache.setIdCardNumber("");
+        cache.setPhoneNumber("");
+
+        cache.setPayloadJson(writeJson(payload));
+        cache.setCrawlSourceUrl(sourceUrl);
+        cache.setCrawledAt(LocalDateTime.now());
+        cache.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
+
         repository.save(cache);
     }
 
