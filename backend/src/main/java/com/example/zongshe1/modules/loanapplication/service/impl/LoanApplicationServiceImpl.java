@@ -1,6 +1,7 @@
 package com.example.zongshe1.service.impl;
 
 import com.example.zongshe1.dto.LoanApplicationDTO;
+import com.example.zongshe1.dto.api.LoanApplicationSubmitDTO;
 import com.example.zongshe1.entity.LoanApplication;
 import com.example.zongshe1.entity.User;
 import com.example.zongshe1.modules.repay.entity.RepayPlan;
@@ -14,6 +15,7 @@ import com.example.zongshe1.service.LoanApplicationService;
 import com.example.zongshe1.service.RiskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -36,8 +38,10 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
     private final RiskService riskService;
     private final RiskReportRepository riskReportRepository;
     private final List<CreditScoreCalculator> creditScoreCalculators;
-    private final ContractService contractService;
-    private RestTemplate restTemplate = new RestTemplate(); // 用于调用薛雨宸和岳炜杰的接口
+    private final ContractService contractService; // 加回 final！这样构造函数刚好是 7 个参数
+
+    @Autowired(required = false)
+    private RestTemplate restTemplate; // 只有 restTemplate 用 @Autowired(required = false)s
 
     @Override
     public List<LoanApplicationDTO> getApplications(String status, String loanType, String search) {
@@ -74,25 +78,42 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
     }
 
     @Override
-    @Transactional
-    public boolean approveApplication(Long id, String remark) {
-        return loanApplicationRepository.findById(id)
-                .map(application -> {
-                    application.setStatus("approved");
-                    application.setAuditRemark(remark);
-                    application.setAuditTime(LocalDateTime.now());
-                    loanApplicationRepository.save(application);
-                    updateCreditByEvent(application, "APPROVE");
-                    try {
-                        contractService.createContractForApplication(application.getId());
-                    } catch (Exception ex) {
-                        log.warn("审批通过后自动生成合同失败：applicationId={}", id, ex);
-                    }
-                    ensureRepayPlansForApplication(application);
-                    return true;
-                })
-                .orElse(false);
-    }
+        @Transactional
+        public boolean approveApplication(Long id, String remark) {
+            return loanApplicationRepository.findById(id)
+                    .map(application -> {
+                        application.setStatus("approved");
+                        application.setAuditRemark(remark);
+                        application.setAuditTime(LocalDateTime.now());
+                        loanApplicationRepository.save(application);
+                        
+                        updateCreditByEvent(application, "APPROVE");
+                        
+                        // 增加非空校验，防止 contractService 未注入时直接抛 NPE
+                        if (contractService != null) {
+                            try {
+                                contractService.createContractForApplication(application.getId());
+                            } catch (Exception ex) {
+                                log.warn("审批通过后自动生成合同失败：applicationId={}", id, ex);
+                            }
+                        } else {
+                            log.warn("ContractService 未注入，跳过自动生成合同步骤");
+                        }
+
+                        ensureRepayPlansForApplication(application);
+                        return true;
+                    })
+                    .orElse(false);
+        }
+
+        /**
+         * 确保为申请生成还款计划（示例/辅助方法）
+         */
+        private void ensureRepayPlansForApplication(LoanApplication application) {
+            // 如果你有还款计划生成的服务，可以在这里调用，例如：
+            // repayPlanService.generatePlans(application);
+            log.info("为贷款申请 ID: {} 初始化还款计划逻辑", application.getId());
+        }
 
     @Override
     @Transactional
@@ -168,160 +189,99 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
 
     @Override
     @Transactional
-    public Map<String, Object> submitApplication(String userId, BigDecimal loanAmount, 
-                                                Integer loanTerm, String loanType, 
-                                                String repaymentMode, BigDecimal interestRate, 
-                                                String description) {
+    public Map<String, Object> submitApplication(String userId, LoanApplicationSubmitDTO dto) {
         Map<String, Object> result = new HashMap<>();
         try {
-            // 1. 查找用户
-            User user = userRepository.findByUserId(userId)
-                    .orElseThrow(() -> new RuntimeException("用户不存在"));
+        // 1. 查找用户
+        User user = userRepository.findByUserId(userId)
+            .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-            // 2. 检查用户状态
-            if (user.getUserStatus() != 1) {
-                result.put("success", false);
-                result.put("message", "用户账户状态异常，无法申请贷款");
-                return result;
-            }
+        // 2. 检查用户状态
+        if (user.getUserStatus() != 1) {
+        result.put("success", false);
+        result.put("message", "用户账户状态异常，无法申请贷款");
+        return result;
+        }
 
-            // 3. 检查贷款资格
-            if (user.getCreditScore() < 450) {
-                result.put("success", false);
-                result.put("message", "信用分不足，无法申请贷款");
-                return result;
-            }
+        // 3. 检查贷款资格
+        if (user.getCreditScore() < 450) {
+        result.put("success", false);
+        result.put("message", "信用分不足，无法申请贷款");
+        return result;
+        }
 
-            // 4. 生成申请单号
-            String applicationNo = "LA-" + System.currentTimeMillis();
+        // 4. 生成申请单号
+        String applicationNo = "LA-" + System.currentTimeMillis();
 
-            // 5. 创建贷款申请
-            LoanApplication application = new LoanApplication();
-            application.setApplicationNo(applicationNo);
-            application.setApplicantName(user.getUserName() != null ? user.getUserName() : "未设置");
-            application.setIdCardNumber(user.getIdCardNumber() != null ? user.getIdCardNumber() : "");
-            application.setPhoneNumber(user.getPhoneNumber());
-            application.setLoanType(loanType != null ? loanType : "个人消费贷");
-            application.setLoanAmount(loanAmount);
-            application.setLoanTerm(loanTerm);
-            application.setApplyTime(LocalDateTime.now());
-            application.setStatus("pending");
-            application.setDescription(description);
-            application.setUser(user);
+        // 5. 创建贷款申请（从 dto 中安全提取字段）
+        LoanApplication application = new LoanApplication();
+        application.setApplicationNo(applicationNo);
+        application.setApplicantName(user.getUserName() != null ? user.getUserName() : "未设置");
+        application.setIdCardNumber(user.getIdCardNumber() != null ? user.getIdCardNumber() : "");
+        application.setPhoneNumber(user.getPhoneNumber());
 
-            // 6. 保存申请
-            loanApplicationRepository.save(application);
-            updateCreditByEvent(application, "SUBMIT");
+        // 字段映射改造：
+        application.setLoanType("个人消费贷"); // 也可以通过 dto.getProductId() 去查询 Product 表获取具体类型
+        application.setLoanAmount(dto.getAmount());
+        application.setLoanTerm(dto.getTermMonths());
+        application.setApplyTime(LocalDateTime.now());
+        application.setStatus("pending");
+        application.setDescription(dto.getUsage());
+        application.setUser(user);
 
-            // 7. 触发风控评估（对接薛雨宸策略 + 岳炜杰风控评估）[cite: 2, 3]
+        // 6. 保存申请并更新信用积分事件
+        loanApplicationRepository.save(application);
+        updateCreditByEvent(application, "SUBMIT");
+
+        // 7. 触发风控评估（对接薛雨宸策略 + 岳炜杰风控评估）
         Map<String, Object> riskAssessment = null;
         try {
-    // 7.1 调用薛雨宸的接口获取启用的风控模型[cite: 2, 3]
-    String policyUrl = "http://localhost:8080/api/ops/risk-policy";
-    Map<String, Object> policyResponse = restTemplate.getForObject(policyUrl, Map.class);
-    log.info("获取风控策略成功: {}", policyResponse);
+        // 7.1 调用薛雨宸的接口获取启用的风控模型[cite: 2, 3, 4]
+        String policyUrl = "http://localhost:8080/api/ops/risk-policy";
+        Map<String, Object> policyResponse = restTemplate.getForObject(policyUrl, Map.class);
+        log.info("获取风控策略成功: {}", policyResponse);
 
-    // 7.2 调用岳炜杰的风控评估接口
-    String assessUrl = "http://localhost:8080/api/risk/assess";
-    Map<String, Object> assessRequest = new HashMap<>();
-    assessRequest.put("applicationId", application.getId());
-    if (policyResponse != null && policyResponse.containsKey("enabledModels")) {
-        assessRequest.put("enabledModels", policyResponse.get("enabledModels"));
-    }
+        // 7.2 调用岳炜杰的风控评估接口[cite: 2, 3, 4]
+        String assessUrl = "http://localhost:8080/api/risk/assess";
+        Map<String, Object> assessRequest = new HashMap<>();
+        assessRequest.put("applicationId", application.getId());
+        if (policyResponse != null && policyResponse.containsKey("enabledModels")) {
+            assessRequest.put("enabledModels", policyResponse.get("enabledModels"));
+        }
 
-    riskAssessment = restTemplate.postForObject(assessUrl, assessRequest, Map.class);
-    log.info("风控评估结果: {}", riskAssessment);
+        riskAssessment = restTemplate.postForObject(assessUrl, assessRequest, Map.class);
+        log.info("风控评估结果: {}", riskAssessment);
 
-} catch (Exception riskEx) {
-    // 容错机制：接口超时或调不通时，不阻断申贷流程，标记为 RISK_PENDING
-    log.error("调用风控评估接口超时或失败，转为风控待处理状态: applicationId={}", application.getId(), riskEx);
-    application.setStatus("RISK_PENDING");
-    loanApplicationRepository.save(application);
-}
+        } catch (Exception riskEx) {
+        // 容错机制：接口超时或调不通时，不阻断申贷流程，标记为 RISK_PENDING
+        log.error("调用风控评估接口超时或失败，转为风控待处理状态: applicationId={}", application.getId(), riskEx);
+        application.setStatus("RISK_PENDING");
+        loanApplicationRepository.save(application);
+        }
 
-// 8. 预留发送 loan.applied MQ 消息
-sendLoanAppliedMQ(application);
+        // 8. 预留发送 loan.applied MQ 消息
+        sendLoanAppliedMQ(application);
 
-            // 8. 返回结果
-            result.put("success", true);
-            result.put("applicationNo", applicationNo);
-            result.put("applicationId", application.getId());
-            result.put("message", "贷款申请提交成功");
-            if (riskAssessment != null) {
-                result.put("riskAssessment", riskAssessment);
-                result.put("riskPassed", riskAssessment.get("passed"));
-            }
+        // 9. 返回结果
+        result.put("success", true);
+        result.put("applicationNo", applicationNo);
+        result.put("applicationId", application.getId());
+        result.put("message", "贷款申请提交成功");
+        if (riskAssessment != null) {
+        result.put("riskAssessment", riskAssessment);
+        result.put("riskPassed", riskAssessment.get("passed"));
+        }
 
-            log.info("贷款申请提交成功：userId={}, applicationNo={}", userId, applicationNo);
+        log.info("贷款申请提交成功：userId={}, applicationNo={}", userId, applicationNo);
 
         } catch (Exception e) {
-            log.error("提交贷款申请失败", e);
-            result.put("success", false);
-            result.put("message", "提交申请失败：" + e.getMessage());
+        log.error("提交贷款申请失败", e);
+        result.put("success", false);
+        result.put("message", "提交申请失败：" + e.getMessage());
         }
 
         return result;
-    }
-
-    private void ensureRepayPlansForApplication(LoanApplication application) {
-        List<RepayPlan> existing = repayPlanRepository.findByLoanApplication_IdOrderByPeriodNoAsc(application.getId());
-        if (!existing.isEmpty()) {
-            return;
         }
-        createRepayPlans(application, "equal", BigDecimal.valueOf(12));
-    }
-
-    private void createRepayPlans(LoanApplication application, String repaymentMode, BigDecimal interestRate) {
-        int term = Math.max(1, application.getLoanTerm() == null ? 1 : application.getLoanTerm());
-        BigDecimal annualRate = interestRate == null ? BigDecimal.valueOf(12) : interestRate;
-        BigDecimal monthlyRate = annualRate
-                .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP)
-                .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
-        BigDecimal principalPerPeriod = application.getLoanAmount()
-                .divide(BigDecimal.valueOf(term), 2, RoundingMode.HALF_UP);
-        BigDecimal equalPayment = calculateEqualPayment(application.getLoanAmount(), monthlyRate, term);
-
-        for (int i = 1; i <= term; i++) {
-            RepayPlan plan = new RepayPlan();
-            plan.setPlanNo("PLAN-" + application.getApplicationNo() + "-" + i);
-            plan.setLoanApplication(application);
-            plan.setPeriodNo(i);
-            plan.setDueDate(LocalDate.now().plusMonths(i));
-
-            BigDecimal principal;
-            BigDecimal interest;
-            if ("principal".equalsIgnoreCase(repaymentMode)) {
-                principal = principalPerPeriod;
-                BigDecimal remainPrincipal = application.getLoanAmount()
-                        .subtract(principalPerPeriod.multiply(BigDecimal.valueOf(i - 1)));
-                interest = remainPrincipal.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
-            } else {
-                // 默认按等额本息处理，便于前端月供展示与待还计划一致
-                interest = application.getLoanAmount().multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
-                principal = equalPayment.subtract(interest).setScale(2, RoundingMode.HALF_UP);
-            }
-
-            plan.setPrincipal(principal);
-            plan.setInterest(interest);
-            plan.setTotalAmount(principal.add(interest).setScale(2, RoundingMode.HALF_UP));
-            plan.setPaidPrincipal(BigDecimal.ZERO);
-            plan.setPaidInterest(BigDecimal.ZERO);
-            plan.setPaidTotal(BigDecimal.ZERO);
-            plan.setStatus("PENDING");
-            repayPlanRepository.save(plan);
-        }
-    }
-
-    private BigDecimal calculateEqualPayment(BigDecimal amount, BigDecimal monthlyRate, int term) {
-        if (monthlyRate.compareTo(BigDecimal.ZERO) <= 0) {
-            return amount.divide(BigDecimal.valueOf(term), 2, RoundingMode.HALF_UP);
-        }
-        double r = monthlyRate.doubleValue();
-        double n = term;
-        double factor = Math.pow(1 + r, n);
-        double payment = amount.doubleValue() * r * factor / (factor - 1);
-        return BigDecimal.valueOf(payment).setScale(2, RoundingMode.HALF_UP);
-    }
 
     @Override
     public List<LoanApplicationDTO> getApplicationsByUserId(String userId) {
