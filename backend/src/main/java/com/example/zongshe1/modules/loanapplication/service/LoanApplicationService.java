@@ -1,6 +1,7 @@
 package com.example.zongshe1.service;
 
 import com.example.zongshe1.dto.LoanApplicationDTO;
+import com.example.zongshe1.dto.api.LoanApplicationSubmitDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -18,20 +19,12 @@ public interface LoanApplicationService {
     Map<String, Object> getStatistics();
 
     /**
-     * 提交贷款申请
+     * 提交贷款申请（标准重构版）
      * @param userId 用户ID
-     * @param loanAmount 贷款金额
-     * @param loanTerm 贷款期限（月）
-     * @param loanType 贷款类型
-     * @param repaymentMode 还款方式
-     * @param interestRate 年化利率
-     * @param description 申请说明
+     * @param dto 申贷提交请求DTO
      * @return 申请结果
      */
-    Map<String, Object> submitApplication(String userId, java.math.BigDecimal loanAmount, 
-                                          Integer loanTerm, String loanType, 
-                                          String repaymentMode, java.math.BigDecimal interestRate, 
-                                          String description);
+    Map<String, Object> submitApplication(String userId, LoanApplicationSubmitDTO dto);
 
     /**
      * 根据用户ID查询贷款申请列表

@@ -1,7 +1,7 @@
 package com.example.zongshe1.controller;
 
 import com.example.zongshe1.dto.LoanApplicationDTO;
-import com.example.zongshe1.dto.api.LoanApplicationRequest;
+import com.example.zongshe1.dto.api.LoanApplicationSubmitDTO;
 import com.example.zongshe1.service.LoanApplicationService;
 import com.example.zongshe1.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -152,13 +152,12 @@ public class LoanApplicationController {
     @Operation(summary = "提交贷款申请", description = "用户提交贷款申请")
     public ResponseEntity<Map<String, Object>> submitApplication(
             @RequestHeader(value = "Authorization", required = false) String token,
-            @Valid @RequestBody LoanApplicationRequest request) {
-        log.info("提交贷款申请请求");
+            @Valid @RequestBody LoanApplicationSubmitDTO dto) {
+        log.info("提交贷款申请请求: {}", dto);
 
         Map<String, Object> result = new HashMap<>();
         try {
-            // 从token中获取userId（简化处理，实际应该解析JWT）
-            // 这里假设前端会在请求体中传递userId，或者从token中解析
+            // 从 token 中获取 userId
             String userId = extractUserIdFromToken(token);
             if (userId == null) {
                 result.put("success", false);
@@ -166,15 +165,8 @@ public class LoanApplicationController {
                 return ResponseEntity.status(401).body(result);
             }
 
-            Map<String, Object> submitResult = loanApplicationService.submitApplication(
-                    userId,
-                    request.getLoanAmount(),
-                    request.getLoanTerm(),
-                    request.getLoanType(),
-                    request.getRepaymentMode(),
-                    request.getInterestRate(),
-                    request.getDescription()
-            );
+            // 调用重构后的 Service 方法，直接传入 userId 和 dto
+            Map<String, Object> submitResult = loanApplicationService.submitApplication(userId, dto);
 
             return ResponseEntity.ok(submitResult);
         } catch (Exception e) {
