@@ -1,78 +1,6 @@
 <template>
-  <div class="app-container">
-    <!-- 顶部导航栏 -->
-    <header class="top-nav">
-      <div class="nav-left">
-        <h1 class="app-title">闪借</h1>
-      </div>
-      <div class="nav-right">
-        <div class="user-info">
-          <span class="username">{{ adminName }}</span>
-          <button class="logout-btn" @click="handleLogout">退出登录</button>
-        </div>
-      </div>
-    </header>
-
-    <!-- 主要内容区域 -->
-    <div class="main-content">
-      <!-- 左侧菜单栏 -->
-      <aside class="sidebar">
-        <nav class="sidebar-nav">
-          <ul>
-            <li class="nav-item" :class="{ active: currentPage === 'dashboard' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'dashboard'">
-                <span class="nav-icon">📊</span>
-                <span class="nav-text">控制台</span>
-              </a>
-            </li>
-            <li class="nav-item" :class="{ active: currentPage === 'users' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'users'">
-                <span class="nav-icon">👥</span>
-                <span class="nav-text">用户管理</span>
-              </a>
-            </li>
-            <li class="nav-item" :class="{ active: currentPage === 'loans' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'loans'">
-                <span class="nav-icon">💼</span>
-                <span class="nav-text">贷款管理</span>
-              </a>
-            </li>
-            <li class="nav-item" :class="{ active: currentPage === 'products' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'products'">
-                <span class="nav-icon">💰</span>
-                <span class="nav-text">产品管理</span>
-              </a>
-            </li>
-            <li class="nav-item" :class="{ active: currentPage === 'repayment' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'repayment'">
-                <span class="nav-icon">📝</span>
-                <span class="nav-text">还款计划</span>
-              </a>
-            </li>
-            <li class="nav-item" :class="{ active: currentPage === 'contracts' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'contracts'">
-                <span class="nav-icon">📄</span>
-                <span class="nav-text">合同管理</span>
-              </a>
-            </li>
-            <li class="nav-item" :class="{ active: currentPage === 'statistics' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'statistics'">
-                <span class="nav-icon">📈</span>
-                <span class="nav-text">数据统计</span>
-              </a>
-            </li>
-            <li class="nav-item" :class="{ active: currentPage === 'settings' }">
-              <a href="#" class="nav-link" @click.prevent="currentPage = 'settings'">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-text">系统设置</span>
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </aside>
-
-      <!-- 右侧内容区 -->
-      <main class="content">
+  <Home v-if="currentPage === 'dashboard'" />
+  <main v-else class="content">
         <!-- 控制台页面 -->
         <div v-if="currentPage === 'dashboard'">
           <div class="content-header">
@@ -1116,9 +1044,7 @@
             </div>
           </div>
         </div>
-      </main>
-    </div>
-  </div>
+  </main>
 </template>
 
 <script>
@@ -1150,12 +1076,15 @@ import {
   logout as apiLogout
 } from '../api/admin'
 import { clearAuth, getAdminUser } from '../api/client'
+import Home from '../views/admin/Home.vue'
 
 export default {
   name: 'Dashboard',
+  components: { Home },
   data() {
     return {
       currentPage: 'dashboard',
+      legacyDataLoaded: false,
       adminName: '管理员',
       dashboardStats: {
         totalUsers: 0,
@@ -1395,6 +1324,20 @@ export default {
     }
   },
   methods: {
+    syncPageFromRoute() {
+      const availablePages = [
+        'dashboard',
+        'users',
+        'loans',
+        'products',
+        'repayment',
+        'contracts',
+        'statistics',
+        'settings'
+      ]
+      const section = this.$route.query.section
+      this.currentPage = availablePages.includes(section) ? section : 'dashboard'
+    },
     formatNumber(value) {
       return Number(value || 0).toLocaleString()
     },
@@ -1559,12 +1502,12 @@ export default {
       }
     },
     async loadAllData() {
+      this.legacyDataLoaded = true
       const admin = getAdminUser()
       if (admin && admin.name) {
         this.adminName = admin.name
       }
       await Promise.all([
-        this.loadDashboardData(),
         this.loadUsers(),
         this.loadLoans(),
         this.loadContracts(),
@@ -2104,12 +2047,10 @@ export default {
   },
   // 生命周期钩子
   mounted() {
-    this.loadAllData()
+    this.syncPageFromRoute()
+    if (this.currentPage !== 'dashboard') this.loadAllData()
     if (this.currentPage === 'statistics') {
       this.initCharts()
-    }
-    if (this.currentPage === 'dashboard') {
-      this.$nextTick(() => this.initDashboardCharts())
     }
     window.addEventListener('resize', this.handleResize)
   },
@@ -2123,6 +2064,9 @@ export default {
     if (this.dashboardPieChart) this.dashboardPieChart.dispose()
   },
   watch: {
+    '$route.query.section'() {
+      this.syncPageFromRoute()
+    },
     currentPage(newPage, oldPage) {
       if (oldPage === 'dashboard') {
         this.disposeDashboardCharts()
@@ -2130,14 +2074,16 @@ export default {
       if (oldPage === 'statistics') {
         this.disposeStatisticsCharts()
       }
+      // 默认首页只展示 Mock；首次进入旧业务区时再沿用原有数据加载。
+      if (newPage !== 'dashboard' && !this.legacyDataLoaded) {
+        this.loadAllData().then(() => {
+          if (this.currentPage === 'statistics') this.$nextTick(() => this.initCharts())
+        })
+        return
+      }
       if (newPage === 'statistics') {
         this.loadChartData().then(() => {
           setTimeout(() => this.initCharts(), 80)
-        })
-      }
-      if (newPage === 'dashboard') {
-        this.loadDashboardData().then(() => {
-          setTimeout(() => this.initDashboardCharts(), 80)
         })
       }
       if (newPage === 'users') this.loadUsers()
