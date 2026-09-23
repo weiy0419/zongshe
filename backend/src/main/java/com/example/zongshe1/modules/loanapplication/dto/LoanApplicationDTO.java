@@ -30,4 +30,6 @@ public class LoanApplicationDTO {
     private Integer scoringCardPoints;
     private Integer scoringCardMax;
     private String rejectReason;
+    private String decision;       // 风控决策结论 (PASS / REJECT)
+    private String reasonSummary;  // 风控原因摘要
 }

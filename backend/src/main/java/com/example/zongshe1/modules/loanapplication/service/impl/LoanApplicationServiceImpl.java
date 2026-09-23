@@ -38,7 +38,7 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
     private final RiskService riskService;
     private final RiskReportRepository riskReportRepository;
     private final List<CreditScoreCalculator> creditScoreCalculators;
-    private final ContractService contractService; // 加回 final！这样构造函数刚好是 7 个参数
+    private final ContractService contractService; 
 
     @Autowired(required = false)
     private RestTemplate restTemplate; // 只有 restTemplate 用 @Autowired(required = false)s
@@ -252,7 +252,19 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         riskAssessment = restTemplate.postForObject(assessUrl, assessRequest, Map.class);
         log.info("风控评估结果: {}", riskAssessment);
 
-        } catch (Exception riskEx) {
+        // 【新增】将风控评估结果写回申请实体
+        if (riskAssessment != null) {
+            String decision = (String) riskAssessment.get("decision"); // 例如 PASS / REJECT
+            String reasonSummary = (String) riskAssessment.get("reasonSummary"); // 原因码摘要
+            
+            application.setDecision(decision);
+            application.setReasonSummary(reasonSummary);
+            // 根据决策结果更新申请状态（如通过则进入待审批/通过，拒绝则为 REJECTED）
+            application.setStatus("PASS".equals(decision) ? "APPROVED" : "REJECTED");
+            loanApplicationRepository.save(application); // 再次保存回写后的状态
+        }
+
+    } catch (Exception riskEx) {
         // 容错机制：接口超时或调不通时，不阻断申贷流程，标记为 RISK_PENDING
         log.error("调用风控评估接口超时或失败，转为风控待处理状态: applicationId={}", application.getId(), riskEx);
         application.setStatus("RISK_PENDING");
@@ -308,6 +320,8 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         dto.setAuditTime(application.getAuditTime());
         dto.setIncomeInfo(application.getIncomeInfo());
         dto.setDescription(application.getDescription());
+        dto.setDecision(application.getDecision());
+        dto.setReasonSummary(application.getReasonSummary());
 
         riskReportRepository.findByLoanApplication_Id(application.getId()).ifPresent(report -> {
             dto.setRiskScore(report.getRiskScore());
