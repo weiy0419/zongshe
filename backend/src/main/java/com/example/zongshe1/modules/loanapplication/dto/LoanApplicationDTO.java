@@ -1,4 +1,4 @@
-package com.example.zongshe1.dto;
+package com.example.zongshe1.modules.loanapplication.dto;
 
 import lombok.Data;
 import java.math.BigDecimal;

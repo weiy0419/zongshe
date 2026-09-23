@@ -1,4 +1,4 @@
-package com.example.zongshe1.dto.api;
+package com.example.zongshe1.modules.repay.dto.api;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;

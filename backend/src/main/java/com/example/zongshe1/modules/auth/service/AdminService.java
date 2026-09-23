@@ -1,7 +1,7 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.auth.service;
 
-import com.example.zongshe1.dto.api.AdminLoginRequest;
-import com.example.zongshe1.dto.api.AdminLoginResponse;
+import com.example.zongshe1.modules.auth.dto.api.AdminLoginRequest;
+import com.example.zongshe1.modules.auth.dto.api.AdminLoginResponse;
 
 import java.util.Map;
 

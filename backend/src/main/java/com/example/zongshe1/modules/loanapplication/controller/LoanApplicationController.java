@@ -1,8 +1,8 @@
-package com.example.zongshe1.controller;
+package com.example.zongshe1.modules.loanapplication.controller;
 
-import com.example.zongshe1.dto.LoanApplicationDTO;
-import com.example.zongshe1.dto.api.LoanApplicationSubmitDTO;
-import com.example.zongshe1.service.LoanApplicationService;
+import com.example.zongshe1.modules.loanapplication.dto.LoanApplicationDTO;
+import com.example.zongshe1.modules.loanapplication.dto.api.LoanApplicationSubmitDTO;
+import com.example.zongshe1.modules.loanapplication.service.LoanApplicationService;
 import com.example.zongshe1.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

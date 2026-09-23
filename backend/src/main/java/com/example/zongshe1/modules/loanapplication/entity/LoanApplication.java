@@ -1,9 +1,11 @@
-package com.example.zongshe1.entity;
+package com.example.zongshe1.modules.loanapplication.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import com.example.zongshe1.modules.user.entity.User;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 

@@ -1,6 +1,7 @@
-package com.example.zongshe1.entity;
+package com.example.zongshe1.modules.risk.entity;
 
 import jakarta.persistence.*;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 
 @Entity
 @Table(name = "t_risk_report")

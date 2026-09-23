@@ -1,7 +1,7 @@
-package com.example.zongshe1.repository;
+package com.example.zongshe1.modules.risk.repository;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.RiskReport;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.risk.entity.RiskReport;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

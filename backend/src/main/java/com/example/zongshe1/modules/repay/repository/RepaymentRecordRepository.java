@@ -1,6 +1,6 @@
-package com.example.zongshe1.repository;
+package com.example.zongshe1.modules.repay.repository;
 
-import com.example.zongshe1.entity.RepaymentRecord;
+import com.example.zongshe1.modules.repay.entity.RepaymentRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;

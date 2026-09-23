@@ -1,8 +1,8 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.repay.service;
 
-import com.example.zongshe1.dto.RepayPlanDTO;
-import com.example.zongshe1.dto.RepaymentRecordDTO;
-import com.example.zongshe1.dto.api.RepayRequest;
+import com.example.zongshe1.modules.repay.dto.RepayPlanDTO;
+import com.example.zongshe1.modules.repay.dto.RepaymentRecordDTO;
+import com.example.zongshe1.modules.repay.dto.api.RepayRequest;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;

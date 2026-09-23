@@ -1,6 +1,6 @@
-package com.example.zongshe1.dto;
+package com.example.zongshe1.modules.user.dto;
 
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.user.entity.User;
 import lombok.Data;
 
 import java.time.LocalDateTime;

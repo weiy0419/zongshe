@@ -1,9 +1,9 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.auth.service.impl;
 
 import com.example.zongshe1.config.ApplicationProperties;
-import com.example.zongshe1.dto.api.AdminLoginRequest;
-import com.example.zongshe1.dto.api.AdminLoginResponse;
-import com.example.zongshe1.service.AdminService;
+import com.example.zongshe1.modules.auth.dto.api.AdminLoginRequest;
+import com.example.zongshe1.modules.auth.dto.api.AdminLoginResponse;
+import com.example.zongshe1.modules.auth.service.AdminService;
 import com.example.zongshe1.common.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,9 +1,9 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.user.service;
 
-import com.example.zongshe1.dto.UserDTO;
-import com.example.zongshe1.dto.api.LoginRequest;
-import com.example.zongshe1.dto.api.RegisterRequest;
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.user.dto.UserDTO;
+import com.example.zongshe1.modules.auth.dto.api.LoginRequest;
+import com.example.zongshe1.modules.auth.dto.api.RegisterRequest;
+import com.example.zongshe1.modules.user.entity.User;
 
 import java.util.Map;
 

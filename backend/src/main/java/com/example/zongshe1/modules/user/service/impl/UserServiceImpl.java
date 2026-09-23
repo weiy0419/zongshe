@@ -1,12 +1,12 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.user.service.impl;
 
-import com.example.zongshe1.dto.UserDTO;
-import com.example.zongshe1.dto.api.LoginRequest;
-import com.example.zongshe1.dto.api.RegisterRequest;
-import com.example.zongshe1.entity.User;
-import com.example.zongshe1.repository.UserRepository;
+import com.example.zongshe1.modules.user.dto.UserDTO;
+import com.example.zongshe1.modules.auth.dto.api.LoginRequest;
+import com.example.zongshe1.modules.auth.dto.api.RegisterRequest;
+import com.example.zongshe1.modules.user.entity.User;
+import com.example.zongshe1.modules.user.repository.UserRepository;
 import com.example.zongshe1.service.CreditScoreCalculator;
-import com.example.zongshe1.service.UserService;
+import com.example.zongshe1.modules.user.service.UserService;
 import com.example.zongshe1.util.EncryptionUtil;
 import com.example.zongshe1.common.util.JwtUtil;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.example.zongshe1.dto;
+package com.example.zongshe1.modules.repay.dto;
 
 import lombok.Data;
 

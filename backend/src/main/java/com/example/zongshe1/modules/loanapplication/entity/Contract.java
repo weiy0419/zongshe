@@ -1,4 +1,4 @@
-package com.example.zongshe1.entity;
+package com.example.zongshe1.modules.loanapplication.entity;
 
 import jakarta.persistence.*;
 import java.util.ArrayList;

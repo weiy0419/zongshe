@@ -1,5 +1,6 @@
-package com.example.zongshe1.entity;
+package com.example.zongshe1.modules.repay.entity;
 
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 import jakarta.persistence.*;
 import lombok.Data;
 import com.example.zongshe1.modules.repay.entity.RepayPlan;
