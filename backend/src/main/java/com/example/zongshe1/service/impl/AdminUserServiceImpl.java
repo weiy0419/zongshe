@@ -2,8 +2,8 @@ package com.example.zongshe1.service.impl;
 
 import com.example.zongshe1.dto.AdminUserRequest;
 import com.example.zongshe1.dto.AdminUserViewDTO;
-import com.example.zongshe1.entity.User;
-import com.example.zongshe1.repository.UserRepository;
+import com.example.zongshe1.modules.user.entity.User;
+import com.example.zongshe1.modules.user.repository.UserRepository;
 import com.example.zongshe1.service.AdminUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

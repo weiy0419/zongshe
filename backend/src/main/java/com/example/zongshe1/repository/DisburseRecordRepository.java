@@ -1,7 +1,7 @@
 package com.example.zongshe1.repository;
 
-import com.example.zongshe1.entity.Contract;
-import com.example.zongshe1.entity.DisburseRecord;
+import com.example.zongshe1.modules.loanapplication.entity.Contract;
+import com.example.zongshe1.modules.loanapplication.entity.DisburseRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

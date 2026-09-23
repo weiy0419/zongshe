@@ -1,10 +1,12 @@
 package com.example.zongshe1.service.scoring.impl;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.risk.service.scoring.impl.SimpleScoringCardEngine;
+
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.user.entity.User;
 import com.example.zongshe1.modules.risk.feature.CurrentRiskFeatures;
 import com.example.zongshe1.modules.risk.feature.FeatureSnapshot;
-import com.example.zongshe1.service.scoring.ScoringCardOutcome;
+import com.example.zongshe1.modules.risk.service.scoring.ScoringCardOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

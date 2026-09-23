@@ -1,4 +1,4 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.statistics.service;
 
 import java.util.Map;
 

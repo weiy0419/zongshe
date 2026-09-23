@@ -1,4 +1,4 @@
-package com.example.zongshe1.util;
+package com.example.zongshe1.common.util;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;

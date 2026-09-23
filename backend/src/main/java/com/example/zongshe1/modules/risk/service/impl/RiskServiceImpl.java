@@ -1,16 +1,16 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.risk.service.impl;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.RiskReport;
-import com.example.zongshe1.entity.User;
-import com.example.zongshe1.repository.LoanApplicationRepository;
-import com.example.zongshe1.repository.RiskReportRepository;
-import com.example.zongshe1.repository.UserRepository;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.risk.entity.RiskReport;
+import com.example.zongshe1.modules.user.entity.User;
+import com.example.zongshe1.modules.loanapplication.repository.LoanApplicationRepository;
+import com.example.zongshe1.modules.risk.repository.RiskReportRepository;
+import com.example.zongshe1.modules.user.repository.UserRepository;
 import com.example.zongshe1.modules.risk.feature.CurrentRiskFeatures;
 import com.example.zongshe1.modules.risk.feature.FeatureContextService;
 import com.example.zongshe1.modules.risk.feature.FeatureSnapshot;
-import com.example.zongshe1.service.RiskRuleEvaluator;
-import com.example.zongshe1.service.RiskService;
+import com.example.zongshe1.modules.risk.service.RiskRuleEvaluator;
+import com.example.zongshe1.modules.risk.service.RiskService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;

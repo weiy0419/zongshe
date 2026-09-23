@@ -1,15 +1,17 @@
 package com.example.zongshe1.service.impl;
 
+import com.example.zongshe1.modules.loanapplication.service.impl.LoanApplicationServiceImpl;
+
 import com.example.zongshe1.dto.AdminContractViewDTO;
-import com.example.zongshe1.entity.LoanApplication;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 import com.example.zongshe1.modules.repay.entity.RepayPlan;
-import com.example.zongshe1.repository.LoanApplicationRepository;
-import com.example.zongshe1.repository.RepayPlanRepository;
-import com.example.zongshe1.repository.RiskReportRepository;
-import com.example.zongshe1.repository.UserRepository;
+import com.example.zongshe1.modules.loanapplication.repository.LoanApplicationRepository;
+import com.example.zongshe1.modules.repay.repository.RepayPlanRepository;
+import com.example.zongshe1.modules.risk.repository.RiskReportRepository;
+import com.example.zongshe1.modules.user.repository.UserRepository;
 import com.example.zongshe1.service.ContractService;
-import com.example.zongshe1.service.CreditScoreCalculator;
-import com.example.zongshe1.service.RiskService;
+import com.example.zongshe1.modules.risk.service.CreditScoreCalculator;
+import com.example.zongshe1.modules.risk.service.RiskService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

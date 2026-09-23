@@ -1,7 +1,7 @@
-package com.example.zongshe1.controller;
+package com.example.zongshe1.modules.product.controller;
 
-import com.example.zongshe1.dto.ProductDTO;
-import com.example.zongshe1.service.ProductService;
+import com.example.zongshe1.modules.product.dto.ProductDTO;
+import com.example.zongshe1.modules.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

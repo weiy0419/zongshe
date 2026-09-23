@@ -1,6 +1,6 @@
-package com.example.zongshe1.repository;
+package com.example.zongshe1.modules.product.repository;
 
-import com.example.zongshe1.entity.Product;
+import com.example.zongshe1.modules.product.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

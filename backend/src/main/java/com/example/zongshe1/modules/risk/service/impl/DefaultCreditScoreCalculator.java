@@ -1,11 +1,11 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.risk.service.impl;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.User;
-import com.example.zongshe1.repository.LoanApplicationRepository;
-import com.example.zongshe1.repository.RepayPlanRepository;
-import com.example.zongshe1.repository.UserRepository;
-import com.example.zongshe1.service.CreditScoreCalculator;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.user.entity.User;
+import com.example.zongshe1.modules.loanapplication.repository.LoanApplicationRepository;
+import com.example.zongshe1.modules.repay.repository.RepayPlanRepository;
+import com.example.zongshe1.modules.user.repository.UserRepository;
+import com.example.zongshe1.modules.risk.service.CreditScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

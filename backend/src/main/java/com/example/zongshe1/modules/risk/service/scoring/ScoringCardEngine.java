@@ -1,7 +1,7 @@
-package com.example.zongshe1.service.scoring;
+package com.example.zongshe1.modules.risk.service.scoring;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.user.entity.User;
 
 /**
  * 评分卡计分引擎：从业务对象抽取特征并汇总为卡分数（分数越高表示越优质，风险越低）。

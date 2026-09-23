@@ -1,6 +1,6 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.product.service;
 
-import com.example.zongshe1.dto.ProductDTO;
+import com.example.zongshe1.modules.product.dto.ProductDTO;
 
 import java.util.List;
 

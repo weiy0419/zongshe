@@ -1,6 +1,6 @@
-package com.example.zongshe1.controller;
+package com.example.zongshe1.modules.statistics.controller;
 
-import com.example.zongshe1.service.StatisticsService;
+import com.example.zongshe1.modules.statistics.service.StatisticsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
