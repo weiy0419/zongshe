@@ -78,6 +78,12 @@ public class LoanApplication {
     @Column(name = "usage_purpose")
     private String usage;
 
+    /**
+     * 风控策略版本号
+     */
+    @Column(name = "policy_version")
+    private Integer policyVersion;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
