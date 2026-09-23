@@ -4,9 +4,11 @@
 
 **发给组员的口径（可直接复制）：**  
 3 个 Spring Boot = 网关 8088 + 主业务 8080（信贷和平台合在一起）+ 风控 8081（多模型成型后再拆）。不要再建 `loan-service` / `platform-service`。前端只打网关。  
-风控定稿：**A/B/C/F 四卡**（申请/行为/催收/反欺诈）。A 卡不低于 II 评分卡。见 `docs/综设III-多模型风控设计.md`。  
-客服：主业务 `modules/ops/` 调大模型辅助问答，无密钥降级 FAQ。  
-钟妮：II 管理端已有，第 1 周改网关即压缩壳子；第 2 周起和岳一起做风控**报告页**，不改风控 Java。
+风控定稿：WOE 申请卡 + 硬规则 + 外部公示 + 行为分；**授信标准可自选启用**；两套及以上 AHP，**矩阵由真爬公示数据计算**；两阶段准入/授信。见 `docs/综设III-多模型风控设计.md`。  
+客服：主业务 `modules/ops/` 调 **OpenAI 兼容** 大模型 HTTP；无密钥降级 FAQ。第 6 周起做，不要改第 1～2 周已完成项。  
+钟妮：II 管理端已有，第 1～2 周改入口和报告骨架**已完成**；**第 3 周起**做授信标准勾选草稿，第 5 周对接 PUT；**第 6 周起**智能客服调试框（只改 Vue）。  
+薛：`/api/ops/risk-policy`、`/api/ops/cs/**` 与压测脚本归平台；不要写 AHP 公式。  
+熊：assess 请求带上当前策略；第 6 周 `SecurityConfig` 放行已登录访问 `/api/ops/cs/**`。
 
 **原则：** 每人只改自己目录里的文件。需要动别人的代码时，开 Issue / 群里说清，由**目录负责人**改，不要直接提交到对方目录。
 
@@ -20,7 +22,7 @@
 | 姓名 | 角色 | 只改这些（含其下所有子目录） |
 |------|------|------------------------------|
 | **邢芙** | 前端 APP | `apps/uni-client/` |
-| **钟妮** | 前端 Web | `frontend/`、`apps/admin-web/`；**主攻风控报告/回放页**（与岳对 DTO，不改 Java） |
+| **钟妮** | 前端 Web | `frontend/`、`apps/admin-web/`；**主攻风控报告/回放页 + 授信标准勾选**（与岳对 DTO，不改 Java） |
 | **熊梓伊** | 后端信贷 | 见第二节「信贷」 |
 | **岳炜杰** | 后端风控 | 见第二节「风控」 |
 | **薛雨宸** | 后端平台 | 见第二节「平台」 |
@@ -79,6 +81,7 @@ backend/src/test/java/.../ContractServiceImplTest.java
 ```
 
 **可以调用、不准改：** 风控接口。过渡期可调 `RiskService`；风控迁到 8081 后只 HTTP 调 `POST /api/risk/assess`。  
+创建申请 / 重评前调用薛的 `GET /api/ops/risk-policy`，把 `enabledModels` 传给 assess。申请表可加 `policyVersion`（熊加列）。  
 **不准改：** 爬虫、风控实现、`deploy/`、`gateway/`、`frontend/`、`apps/uni-client/`。  
 **不要**把信贷打成独立 `loan-service` 工程。
 
@@ -105,7 +108,8 @@ backend/src/test/java/.../SimpleScoringCardEngineTest.java
 **可以调用、不准改：** `User`、`LoanApplication` 实体（只读字段算分）。需要新字段（如消费贷 `usage`）让**熊梓伊**加。  
 **不准改：** 申请状态机、合同、放款、还款入账、`SecurityConfig`、`deploy/`。
 
-以后新建文件也放在 `modules/risk/` 或 `modules/crawler/` 下，例如 `WoeScoringCardEngine`、`AhpWeightCalculator`、`TwoStageRiskOrchestrator`、失信适配器、行为分。详见 `docs/综设III-多模型风控设计.md`。多模型能演示后再迁到独立 `risk-service`（8081），不要提前为拆而拆。
+以后新建文件也放在 `modules/risk/` 或 `modules/crawler/` 下，例如 `WoeScoringCardEngine`、`AhpMatrixBuilder`、`AhpWeightCalculator`、`TwoStageRiskOrchestrator`、失信适配器、行为分。详见 `docs/综设III-多模型风控设计.md`。多模型能演示后再迁到独立 `risk-service`（8081），不要提前为拆而拆。  
+**不准改：** `modules/ops/` 里的 `risk-policy` 存储（薛的）；岳只读请求里的 `enabledModels`。
 
 ---
 
@@ -120,7 +124,7 @@ deploy/                           （含 docker-compose、nginx、.env.example�
 backend/Dockerfile
 backend/Dockerfile.prebuilt
 
-backend/.../modules/ops/         审计、催收、工单、FAQ、AI 客服辅助、渠道、预警、缓存切面、限流
+backend/.../modules/ops/         审计、催收、工单、FAQ、AI 客服辅助、渠道、预警、缓存切面、限流、**风控启用策略 risk-policy**
 ```
 
 缓存、RabbitMQ、Gateway：写成**新类、新配置段、新包**，不要改 `RiskServiceImpl`、`RepaymentServiceImpl`、`LoanApplicationServiceImpl` 的业务逻辑。
@@ -169,8 +173,10 @@ backend/.../modules/ops/         审计、催收、工单、FAQ、AI 客服辅�
 | 调用 | 谁提供 | 谁使用 |
 |------|--------|--------|
 | 登录 / 注册 / 产品 / 申请 / 审批 / 合同 / 放款 / 还款 | 熊梓伊 | 邢芙、钟妮 |
-| `POST` 风控评估、回放、重评、特征查询、手动爬取 | 岳炜杰 | 熊梓伊（申贷后评估）；薛雨宸（重评、爬取按钮转发）；**钟妮（第 2 周起做报告/回放页，与岳联调）** |
-| 网关地址、缓存、队列、催收/工单/FAQ/AI 客服/渠道/审计 | 薛雨宸 | 前端改 baseURL；熊/岳只发事件 |
+| `POST` 风控评估、回放、重评、特征查询、手动爬取 | 岳炜杰 | 熊梓伊（申贷后评估，带策略）；薛雨宸（重评、爬取按钮转发）；**钟妮（报告/回放/勾选对照）** |
+| `GET/PUT /api/ops/risk-policy` | 薛雨宸 | 钟妮（勾选页）；熊梓伊（创建申请时读取） |
+| `POST /api/ops/cs/ask`、`GET /api/ops/cs/faq`、工单拟回复 | 薛雨宸 | 钟妮、邢芙；熊梓伊只放行已登录访问 |
+| 网关地址、缓存、队列、催收/工单/渠道/审计、压测脚本 | 薛雨宸 | 前端改 baseURL；熊/岳只发事件 |
 
 多模型怎么拆、怎么融合、何时迁 8081：见 `docs/综设III-多模型风控设计.md`。
 
