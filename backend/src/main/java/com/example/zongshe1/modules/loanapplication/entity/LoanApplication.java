@@ -45,6 +45,18 @@ public class LoanApplication {
     @Column(name = "status")
     private String status = "pending";
 
+    /**
+     * 风控决策结果 (PASS / REJECT)
+     */
+    @Column(name = "decision")
+    private String decision;
+
+    /**
+     * 原因码摘要
+     */
+    @Column(name = "reason_summary", columnDefinition = "TEXT")
+    private String reasonSummary;
+
     @Column(name = "audit_remark", columnDefinition = "TEXT")
     private String auditRemark;
 
@@ -63,8 +75,7 @@ public class LoanApplication {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    // 在 LoanApplication 实体类中添加/确认 usage 字段
-    @Column(name = "usage_purpose") // 或 "usage"
+    @Column(name = "usage_purpose")
     private String usage;
 
     @ManyToOne(fetch = FetchType.LAZY)
