@@ -1,8 +1,8 @@
-package com.example.zongshe1.controller;
+package com.example.zongshe1.modules.auth.controller;
 
-import com.example.zongshe1.dto.api.AdminLoginRequest;
-import com.example.zongshe1.dto.api.AdminLoginResponse;
-import com.example.zongshe1.service.AdminService;
+import com.example.zongshe1.modules.auth.dto.api.AdminLoginRequest;
+import com.example.zongshe1.modules.auth.dto.api.AdminLoginResponse;
+import com.example.zongshe1.modules.auth.service.AdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

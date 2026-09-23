@@ -1,10 +1,10 @@
 package com.example.zongshe1.modules.risk.service.impl;
 
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.user.entity.User;
 import com.example.zongshe1.modules.risk.service.CreditEvaluationService;
-import com.example.zongshe1.repository.UserRepository;
-import com.example.zongshe1.service.CreditScoreCalculator;
-import com.example.zongshe1.service.impl.DefaultCreditScoreCalculator;
+import com.example.zongshe1.modules.user.repository.UserRepository;
+import com.example.zongshe1.modules.risk.service.CreditScoreCalculator;
+import com.example.zongshe1.modules.risk.service.impl.DefaultCreditScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

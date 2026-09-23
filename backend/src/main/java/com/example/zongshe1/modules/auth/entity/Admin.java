@@ -1,4 +1,4 @@
-package com.example.zongshe1.entity;
+package com.example.zongshe1.modules.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

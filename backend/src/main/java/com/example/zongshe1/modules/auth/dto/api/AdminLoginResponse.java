@@ -1,4 +1,4 @@
-package com.example.zongshe1.dto.api;
+package com.example.zongshe1.modules.auth.dto.api;
 
 import lombok.Data;
 

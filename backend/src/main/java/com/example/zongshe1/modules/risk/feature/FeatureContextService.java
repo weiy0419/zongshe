@@ -1,7 +1,7 @@
 package com.example.zongshe1.modules.risk.feature;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.user.entity.User;
 import com.example.zongshe1.modules.risk.datasource.DataSourceQuery;
 import com.example.zongshe1.modules.risk.datasource.ExternalDataFetchResult;
 import com.example.zongshe1.modules.risk.datasource.ExternalDataOrchestrator;

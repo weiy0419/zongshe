@@ -1,9 +1,9 @@
 package com.example.zongshe1.modules.risk.feature;
 
 import com.example.zongshe1.common.dto.FeatureSnapshotDTO;
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.user.entity.User;
 import com.example.zongshe1.modules.crawler.service.ExternalDataCacheService;
-import com.example.zongshe1.repository.UserRepository;
+import com.example.zongshe1.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

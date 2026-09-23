@@ -1,7 +1,7 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.loanapplication.service;
 
-import com.example.zongshe1.dto.LoanApplicationDTO;
-import com.example.zongshe1.dto.api.LoanApplicationSubmitDTO;
+import com.example.zongshe1.modules.loanapplication.dto.LoanApplicationDTO;
+import com.example.zongshe1.modules.loanapplication.dto.api.LoanApplicationSubmitDTO;
 
 import java.util.List;
 import java.util.Map;

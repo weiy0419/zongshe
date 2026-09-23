@@ -1,7 +1,7 @@
 package com.example.zongshe1.modules.repay.entity;
 
 import jakarta.persistence.*;
-import com.example.zongshe1.entity.LoanApplication;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;

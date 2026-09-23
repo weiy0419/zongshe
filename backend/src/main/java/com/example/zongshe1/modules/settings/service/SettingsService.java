@@ -1,7 +1,7 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.settings.service;
 
 import com.example.zongshe1.dto.PortalSettingsDTO;
-import com.example.zongshe1.dto.SystemSettingsDTO;
+import com.example.zongshe1.modules.settings.dto.SystemSettingsDTO;
 
 public interface SettingsService {
 

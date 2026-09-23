@@ -1,7 +1,7 @@
-package com.example.zongshe1.service;
+package com.example.zongshe1.modules.risk.service;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.RiskReport;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.risk.entity.RiskReport;
 
 import java.util.List;
 import java.util.Map;

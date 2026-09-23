@@ -1,15 +1,15 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.statistics.service.impl;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.Product;
-import com.example.zongshe1.entity.RepaymentRecord;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.product.entity.Product;
+import com.example.zongshe1.modules.repay.entity.RepaymentRecord;
 import com.example.zongshe1.modules.repay.entity.RepayPlan;
-import com.example.zongshe1.repository.LoanApplicationRepository;
-import com.example.zongshe1.repository.ProductRepository;
-import com.example.zongshe1.repository.RepayPlanRepository;
-import com.example.zongshe1.repository.RepaymentRecordRepository;
-import com.example.zongshe1.repository.UserRepository;
-import com.example.zongshe1.service.StatisticsService;
+import com.example.zongshe1.modules.loanapplication.repository.LoanApplicationRepository;
+import com.example.zongshe1.modules.product.repository.ProductRepository;
+import com.example.zongshe1.modules.repay.repository.RepayPlanRepository;
+import com.example.zongshe1.modules.repay.repository.RepaymentRecordRepository;
+import com.example.zongshe1.modules.user.repository.UserRepository;
+import com.example.zongshe1.modules.statistics.service.StatisticsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

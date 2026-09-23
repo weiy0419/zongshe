@@ -1,11 +1,11 @@
-package com.example.zongshe1.service.scoring.impl;
+package com.example.zongshe1.modules.risk.service.scoring.impl;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.User;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.user.entity.User;
 import com.example.zongshe1.modules.risk.feature.CurrentRiskFeatures;
 import com.example.zongshe1.modules.risk.feature.FeatureSnapshot;
-import com.example.zongshe1.service.scoring.ScoringCardEngine;
-import com.example.zongshe1.service.scoring.ScoringCardOutcome;
+import com.example.zongshe1.modules.risk.service.scoring.ScoringCardEngine;
+import com.example.zongshe1.modules.risk.service.scoring.ScoringCardOutcome;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

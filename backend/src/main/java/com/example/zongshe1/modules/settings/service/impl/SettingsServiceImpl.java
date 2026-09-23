@@ -1,8 +1,8 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.settings.service.impl;
 
 import com.example.zongshe1.dto.PortalSettingsDTO;
-import com.example.zongshe1.dto.SystemSettingsDTO;
-import com.example.zongshe1.service.SettingsService;
+import com.example.zongshe1.modules.settings.dto.SystemSettingsDTO;
+import com.example.zongshe1.modules.settings.service.SettingsService;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

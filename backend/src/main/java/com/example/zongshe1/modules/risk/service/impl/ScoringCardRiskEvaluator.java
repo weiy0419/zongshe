@@ -1,10 +1,10 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.risk.service.impl;
 
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.User;
-import com.example.zongshe1.service.RiskRuleEvaluator;
-import com.example.zongshe1.service.scoring.ScoringCardEngine;
-import com.example.zongshe1.service.scoring.ScoringCardOutcome;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.user.entity.User;
+import com.example.zongshe1.modules.risk.service.RiskRuleEvaluator;
+import com.example.zongshe1.modules.risk.service.scoring.ScoringCardEngine;
+import com.example.zongshe1.modules.risk.service.scoring.ScoringCardOutcome;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

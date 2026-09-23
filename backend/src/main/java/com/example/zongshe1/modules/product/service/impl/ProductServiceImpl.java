@@ -1,9 +1,9 @@
-package com.example.zongshe1.service.impl;
+package com.example.zongshe1.modules.product.service.impl;
 
-import com.example.zongshe1.dto.ProductDTO;
-import com.example.zongshe1.entity.Product;
-import com.example.zongshe1.repository.ProductRepository;
-import com.example.zongshe1.service.ProductService;
+import com.example.zongshe1.modules.product.dto.ProductDTO;
+import com.example.zongshe1.modules.product.entity.Product;
+import com.example.zongshe1.modules.product.repository.ProductRepository;
+import com.example.zongshe1.modules.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

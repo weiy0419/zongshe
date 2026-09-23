@@ -1,6 +1,6 @@
-package com.example.zongshe1.repository;
+package com.example.zongshe1.modules.auth.repository;
 
-import com.example.zongshe1.entity.Admin;
+import com.example.zongshe1.modules.auth.entity.Admin;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

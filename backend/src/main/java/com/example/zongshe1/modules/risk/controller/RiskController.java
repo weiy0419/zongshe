@@ -1,12 +1,12 @@
 package com.example.zongshe1.modules.risk.controller;
 
 import com.example.zongshe1.common.dto.FeatureSnapshotDTO;
-import com.example.zongshe1.entity.RiskReport;
+import com.example.zongshe1.modules.risk.entity.RiskReport;
 import com.example.zongshe1.common.dto.RiskAssessmentRequest;
 import com.example.zongshe1.common.enums.RiskReasonCode;
 import com.example.zongshe1.common.dto.RiskReportDTO;
 import com.example.zongshe1.modules.risk.feature.RiskFeatureQueryService;
-import com.example.zongshe1.service.RiskService;
+import com.example.zongshe1.modules.risk.service.RiskService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

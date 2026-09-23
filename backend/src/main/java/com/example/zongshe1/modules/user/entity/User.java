@@ -1,8 +1,9 @@
-package com.example.zongshe1.entity;
+package com.example.zongshe1.modules.user.entity;
 
 import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 
 @Entity
 @Table(name = "t_user")

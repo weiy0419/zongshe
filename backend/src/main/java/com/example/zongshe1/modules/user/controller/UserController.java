@@ -1,10 +1,10 @@
-package com.example.zongshe1.controller;
+package com.example.zongshe1.modules.user.controller;
 
-import com.example.zongshe1.dto.api.LoginRequest;
-import com.example.zongshe1.dto.api.OtpLoginRequest;
-import com.example.zongshe1.dto.api.RegisterRequest;
-import com.example.zongshe1.dto.api.SendOtpRequest;
-import com.example.zongshe1.service.UserService;
+import com.example.zongshe1.modules.auth.dto.api.LoginRequest;
+import com.example.zongshe1.modules.auth.dto.api.OtpLoginRequest;
+import com.example.zongshe1.modules.auth.dto.api.RegisterRequest;
+import com.example.zongshe1.modules.auth.dto.api.SendOtpRequest;
+import com.example.zongshe1.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

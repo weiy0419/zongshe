@@ -1,8 +1,8 @@
-package com.example.zongshe1.controller;
+package com.example.zongshe1.modules.settings.controller;
 
 import com.example.zongshe1.dto.PortalSettingsDTO;
-import com.example.zongshe1.dto.SystemSettingsDTO;
-import com.example.zongshe1.service.SettingsService;
+import com.example.zongshe1.modules.settings.dto.SystemSettingsDTO;
+import com.example.zongshe1.modules.settings.service.SettingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

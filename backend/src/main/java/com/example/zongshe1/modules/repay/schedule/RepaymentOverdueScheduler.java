@@ -1,7 +1,7 @@
 package com.example.zongshe1.modules.repay.schedule;
 
 import com.example.zongshe1.modules.repay.entity.RepayPlan;
-import com.example.zongshe1.repository.RepayPlanRepository;
+import com.example.zongshe1.modules.repay.repository.RepayPlanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

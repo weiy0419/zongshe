@@ -1,6 +1,6 @@
-package com.example.zongshe1.repository;
+package com.example.zongshe1.modules.loanapplication.repository;
 
-import com.example.zongshe1.entity.LoanApplication;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

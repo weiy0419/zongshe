@@ -1,4 +1,4 @@
-package com.example.zongshe1.repository;
+package com.example.zongshe1.modules.repay.repository;
 
 import com.example.zongshe1.modules.repay.entity.RepayPlan;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,8 +1,8 @@
-package com.example.zongshe1.dto;
+package com.example.zongshe1.modules.repay.dto;
 
 import lombok.Data;
-import com.example.zongshe1.entity.LoanApplication;
-import com.example.zongshe1.entity.RepayPlan;
+import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
+import com.example.zongshe1.modules.repay.entity.RepayPlan;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
