@@ -227,6 +227,7 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         application.setApplyTime(LocalDateTime.now());
         application.setStatus("pending");
         application.setDescription(dto.getUsage());
+        application.setUsage(dto.getUsage()); // 保存用途到 usage 字段
         application.setUser(user);
 
         // 6. 保存申请并更新信用积分事件
@@ -235,40 +236,58 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
 
         // 7. 触发风控评估（对接薛雨宸策略 + 岳炜杰风控评估）
         Map<String, Object> riskAssessment = null;
+        Integer policyVersion = 1; // 默认版本号兜底
+
         try {
-        // 7.1 调用薛雨宸的接口获取启用的风控模型[cite: 2, 3, 4]
-        String policyUrl = "http://localhost:8080/api/ops/risk-policy";
-        Map<String, Object> policyResponse = restTemplate.getForObject(policyUrl, Map.class);
-        log.info("获取风控策略成功: {}", policyResponse);
+            // 7.1 调用薛雨宸的接口获取启用的风控模型
+            String policyUrl = "http://localhost:8080/api/ops/risk-policy";
+            Map<String, Object> policyResponse = restTemplate.getForObject(policyUrl, Map.class);
+            log.info("获取风控策略成功: {}", policyResponse);
 
-        // 7.2 调用岳炜杰的风控评估接口[cite: 2, 3, 4]
-        String assessUrl = "http://localhost:8080/api/risk/assess";
-        Map<String, Object> assessRequest = new HashMap<>();
-        assessRequest.put("applicationId", application.getId());
-        if (policyResponse != null && policyResponse.containsKey("enabledModels")) {
-            assessRequest.put("enabledModels", policyResponse.get("enabledModels"));
-        }
+            // 从策略响应中提取 policyVersion
+            if (policyResponse != null && policyResponse.containsKey("policyVersion")) {
+                Object pVer = policyResponse.get("policyVersion");
+                if (pVer instanceof Number) {
+                    policyVersion = ((Number) pVer).intValue();
+                }
+            }
 
-        riskAssessment = restTemplate.postForObject(assessUrl, assessRequest, Map.class);
-        log.info("风控评估结果: {}", riskAssessment);
+            // 【新增】将拿到的 policyVersion 记录到本笔申请并落库
+            application.setPolicyVersion(policyVersion);
+            loanApplicationRepository.save(application);
 
-        // 【新增】将风控评估结果写回申请实体
-        if (riskAssessment != null) {
-            String decision = (String) riskAssessment.get("decision"); // 例如 PASS / REJECT
-            String reasonSummary = (String) riskAssessment.get("reasonSummary"); // 原因码摘要
-            
-            application.setDecision(decision);
-            application.setReasonSummary(reasonSummary);
-            // 根据决策结果更新申请状态（如通过则进入待审批/通过，拒绝则为 REJECTED）
-            application.setStatus("PASS".equals(decision) ? "APPROVED" : "REJECTED");
-            loanApplicationRepository.save(application); // 再次保存回写后的状态
-        }
+            // 7.2 调用岳炜杰的风控评估接口
+            String assessUrl = "http://localhost:8080/api/risk/assess";
+            Map<String, Object> assessRequest = new HashMap<>();
+            assessRequest.put("applicationId", application.getId());
+            assessRequest.put("policyVersion", policyVersion); // 【新增】传入策略版本号
 
-    } catch (Exception riskEx) {
-        // 容错机制：接口超时或调不通时，不阻断申贷流程，标记为 RISK_PENDING
-        log.error("调用风控评估接口超时或失败，转为风控待处理状态: applicationId={}", application.getId(), riskEx);
-        application.setStatus("RISK_PENDING");
-        loanApplicationRepository.save(application);
+            if (policyResponse != null && policyResponse.containsKey("enabledModels")) {
+                assessRequest.put("enabledModels", policyResponse.get("enabledModels"));
+            } else {
+                assessRequest.put("enabledModels", List.of("WOE")); // 默认策略兜底
+            }
+
+            riskAssessment = restTemplate.postForObject(assessUrl, assessRequest, Map.class);
+            log.info("风控评估结果: {}", riskAssessment);
+
+            // 【新增】将风控评估结果写回申请实体
+            if (riskAssessment != null) {
+                String decision = (String) riskAssessment.get("decision"); // 例如 PASS / REJECT
+                String reasonSummary = (String) riskAssessment.get("reasonSummary"); // 原因码摘要
+                
+                application.setDecision(decision);
+                application.setReasonSummary(reasonSummary);
+                // 根据决策结果更新申请状态
+                application.setStatus("PASS".equals(decision) ? "APPROVED" : "REJECTED");
+                loanApplicationRepository.save(application); // 再次保存回写后的状态
+            }
+
+        } catch (Exception riskEx) {
+            // 容错机制：接口超时或调不通时，不阻断申贷流程，标记为 RISK_PENDING
+            log.error("调用风控评估接口超时或失败，转为风控待处理状态: applicationId={}", application.getId(), riskEx);
+            application.setStatus("RISK_PENDING");
+            loanApplicationRepository.save(application);
         }
 
         // 8. 预留发送 loan.applied MQ 消息
@@ -322,6 +341,8 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         dto.setDescription(application.getDescription());
         dto.setDecision(application.getDecision());
         dto.setReasonSummary(application.getReasonSummary());
+        dto.setUsage(application.getUsage());
+        dto.setPolicyVersion(application.getPolicyVersion());
 
         riskReportRepository.findByLoanApplication_Id(application.getId()).ifPresent(report -> {
             dto.setRiskScore(report.getRiskScore());

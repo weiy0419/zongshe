@@ -22,8 +22,10 @@ public class LoanApplicationDTO {
     private LocalDateTime auditTime;
     private String incomeInfo;
     private String description;
-
+    
     // 风控相关字段
+    private String usage;          // 申贷用途
+    private Integer policyVersion; // 风控策略版本号
     private Integer riskScore;
     private Integer riskLevel;
     private Boolean riskPassed;
