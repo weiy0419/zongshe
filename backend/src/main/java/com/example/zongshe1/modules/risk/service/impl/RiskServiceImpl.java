@@ -1,16 +1,23 @@
 package com.example.zongshe1.modules.risk.service.impl;
 
+import com.example.zongshe1.common.dto.RiskAssessmentRequest;
+import com.example.zongshe1.common.dto.RiskReportDTO;
+import com.example.zongshe1.common.exception.BusinessException;
 import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 import com.example.zongshe1.modules.risk.entity.RiskReport;
 import com.example.zongshe1.modules.user.entity.User;
 import com.example.zongshe1.modules.loanapplication.repository.LoanApplicationRepository;
 import com.example.zongshe1.modules.risk.repository.RiskReportRepository;
 import com.example.zongshe1.modules.user.repository.UserRepository;
+import com.example.zongshe1.modules.product.repository.ProductRepository;
 import com.example.zongshe1.modules.risk.feature.CurrentRiskFeatures;
 import com.example.zongshe1.modules.risk.feature.FeatureContextService;
 import com.example.zongshe1.modules.risk.feature.FeatureSnapshot;
 import com.example.zongshe1.modules.risk.service.RiskRuleEvaluator;
 import com.example.zongshe1.modules.risk.service.RiskService;
+import com.example.zongshe1.modules.risk.service.RiskAssessmentDedupService;
+import com.example.zongshe1.modules.risk.service.RiskReportAssembler;
+import com.example.zongshe1.modules.risk.service.TwoStageRiskOrchestrator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +57,83 @@ public class RiskServiceImpl implements RiskService {
     private final FeatureContextService featureContextService;
     private final CurrentRiskFeatures currentRiskFeatures;
     private final ObjectMapper objectMapper;
+    private final ProductRepository productRepository;
+    private final TwoStageRiskOrchestrator twoStageRiskOrchestrator;
+    private final RiskAssessmentDedupService assessmentDedupService;
+    private final RiskReportAssembler reportAssembler;
+
+    @Override
+    @Transactional(readOnly = true)
+    public RiskReportDTO assess(RiskAssessmentRequest request) {
+        if (request == null || request.getApplicationId() == null || request.getApplicationId() <= 0) {
+            throw new BusinessException("有效的 applicationId 不能为空");
+        }
+        List<String> models = request.getEnabledModels() == null
+                ? List.of("WOE") : new ArrayList<>(request.getEnabledModels());
+        if (models.stream().anyMatch(model -> !"WOE".equals(model))) {
+            throw new BusinessException("第四周仅支持 WOE 授信模型，其他模型尚未实现");
+        }
+        List<String> enabledModels = models.stream().distinct().toList();
+        LoanApplication application = loanApplicationRepository.findById(request.getApplicationId())
+                .orElseThrow(() -> new BusinessException("贷款申请不存在，请在申请提交后再评估"));
+        if (application.getUser() == null || application.getUser().getId() == null) {
+            throw new BusinessException("贷款申请未关联有效用户");
+        }
+        User user = userRepository.findById(application.getUser().getId())
+                .orElseThrow(() -> new BusinessException("申请用户不存在"));
+        if (request.getUserId() != null && !request.getUserId().equals(user.getId())) {
+            throw new BusinessException("userId 与申请所属用户不一致");
+        }
+        if (application.getLoanAmount() == null || application.getLoanAmount().signum() <= 0) {
+            throw new BusinessException("申请金额必须大于 0");
+        }
+        // 使用已保存的申请输入计算，拒绝与申请不一致的覆盖值。
+        if (request.getLoanAmount() != null
+                && request.getLoanAmount().compareTo(application.getLoanAmount()) != 0) {
+            throw new BusinessException("loanAmount 与申请金额不一致");
+        }
+        if (request.getLoanTerm() != null && !request.getLoanTerm().equals(application.getLoanTerm())) {
+            throw new BusinessException("loanTerm 与申请期限不一致");
+        }
+
+        TwoStageRiskOrchestrator.Result result;
+        Map<String, Object> dedup = new LinkedHashMap<>();
+        if (request.getProductId() == null) {
+            // 现有申请实体没有产品 ID；旧请求可真实评估，但不能用贷款类型伪造去重键。
+            log.info("风控评估跳过去重：applicationId={}，原因=MISSING_PRODUCT_ID", application.getId());
+            result = twoStageRiskOrchestrator.assess(user, application, enabledModels);
+            dedup.put("enabled", false);
+            dedup.put("reused", false);
+            dedup.put("skipped", "MISSING_PRODUCT_ID");
+        } else {
+            if (request.getProductId() <= 0 || !productRepository.existsById(request.getProductId())) {
+                throw new BusinessException("productId 必须对应真实产品");
+            }
+            RiskAssessmentDedupService.Lookup lookup = assessmentDedupService.assess(
+                    user.getId(), request.getProductId(), application.getLoanAmount(), enabledModels,
+                    () -> twoStageRiskOrchestrator.assess(user, application, enabledModels));
+            result = lookup.result();
+            boolean reused = lookup.reused();
+            // 复用前至少确认可直接读取的准入输入未变，避免账户停用或信用分变化后沿用旧结论。
+            if (reused && (!sameInteger(result.features().get("credit_score"), user.getCreditScore())
+                    || !sameInteger(result.features().get("user_status"), user.getUserStatus()))) {
+                log.info("风控缓存不适用，重新计算：applicationId={}，原因=USER_INPUT_CHANGED", application.getId());
+                result = twoStageRiskOrchestrator.assess(user, application, enabledModels);
+                reused = false;
+                dedup.put("skipped", "USER_INPUT_CHANGED");
+            }
+            dedup.put("enabled", true);
+            dedup.put("reused", reused);
+        }
+        // 本次仅接线，不写数据库。命中时保留原计算快照和时间，绑定当前申请 ID。
+        RiskReportDTO report = reportAssembler.assemble(result, null, application.getId(), user.getId());
+        report.getBreakdown().put("dedup", dedup);
+        return report;
+    }
+
+    private static boolean sameInteger(Object value, Integer expected) {
+        return value instanceof Number number && expected != null && number.intValue() == expected;
+    }
 
     @Override
     @Transactional

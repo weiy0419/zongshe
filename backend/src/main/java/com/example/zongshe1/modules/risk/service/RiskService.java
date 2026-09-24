@@ -2,6 +2,8 @@ package com.example.zongshe1.modules.risk.service;
 
 import com.example.zongshe1.modules.loanapplication.entity.LoanApplication;
 import com.example.zongshe1.modules.risk.entity.RiskReport;
+import com.example.zongshe1.common.dto.RiskAssessmentRequest;
+import com.example.zongshe1.common.dto.RiskReportDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -24,6 +26,9 @@ import java.util.Map;
  * @since 2025-12-21
  */
 public interface RiskService {
+
+    /** 第四周真实两阶段评估；只读已有申请，返回尚未落库的报告 DTO。 */
+    RiskReportDTO assess(RiskAssessmentRequest request);
 
     /**
      * 执行完整的风险评估流程
