@@ -44,6 +44,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -127,8 +128,45 @@ class RiskWeek4AcceptanceTest {
         ReflectionTestUtils.setField(scoring, "passMinPoints", 40);
         List<RiskRuleEvaluator> rules = List.of(basic, scoring);
         TwoStageRiskOrchestrator orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current);
-        RiskServiceImpl service = new RiskServiceImpl(rules, repository, users, mock(RiskReportRepository.class),
-                features, current, mapper, products, orchestrator, dedup, new RiskReportAssembler());
+        RiskReportRepository reports = mock(RiskReportRepository.class);
+        Map<Long, com.example.zongshe1.modules.risk.entity.RiskReport> persistedReports =
+                new HashMap<>();
+
+        when(reports.findByLoanApplication(any(LoanApplication.class)))
+                .thenAnswer(invocation -> {
+                    LoanApplication application = invocation.getArgument(0);
+                    return Optional.ofNullable(persistedReports.get(application.getId()));
+                });
+
+        when(reports.findByLoanApplication_Id(anyLong()))
+                .thenAnswer(invocation ->
+                        Optional.ofNullable(persistedReports.get(invocation.getArgument(0))));
+
+        when(reports.save(any()))
+                .thenAnswer(invocation -> {
+                    var report = invocation.getArgument(
+                            0,
+                            com.example.zongshe1.modules.risk.entity.RiskReport.class);
+
+                    report.setId(1001L);
+                    persistedReports.put(report.getLoanApplication().getId(), report);
+
+                    return report;
+                });
+
+        RiskServiceImpl service = new RiskServiceImpl(
+                rules,
+                repository,
+                users,
+                reports,
+                features,
+                current,
+                mapper,
+                products,
+                orchestrator,
+                dedup,
+                new RiskReportAssembler()
+        );
         mvc = MockMvcBuilders.standaloneSetup(new RiskController(service, mock(RiskFeatureQueryService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         application(101L, "10000");
@@ -168,7 +206,7 @@ class RiskWeek4AcceptanceTest {
         assertEquals(100, first.path("totalScore").asInt());
         assertEquals("APPROVED", first.path("decision").asText());
         assertEquals(first.path("assessedAt"), second.path("assessedAt"));
-        assertTrue(first.path("reportId").isNull());
+        assertEquals(1001L, first.path("reportId").asLong());
         ObjectNode comparableSecond = second.deepCopy();
         ((ObjectNode) comparableSecond.at("/breakdown/dedup")).put("reused", false);
         assertEquals(first, comparableSecond);
@@ -242,5 +280,56 @@ class RiskWeek4AcceptanceTest {
                 .withUserConfiguration(CurrentRiskFeatures.class, SimpleScoringCardEngine.class, WoeScoringCardEngine.class)
                 .withPropertyValues("risk.scoring-card.engine=woe")
                 .run(context -> assertInstanceOf(WoeScoringCardEngine.class, context.getBean(ScoringCardEngine.class)));
+    }
+
+    @Test
+    void persistedAssessmentCanBeQueriedWithoutReassessment() throws Exception {
+        JsonNode assessed = assess(
+                "{\"applicationId\":101,\"productId\":7,\"enabledModels\":[\"WOE\"]}"
+        );
+
+        String body = mvc.perform(
+                        get("/api/risk/applications/101/report")
+                )
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
+
+        JsonNode response = mapper.readTree(body);
+        JsonNode report = response.path("data");
+
+        assertTrue(response.path("success").asBoolean());
+
+        assertEquals(1001L, report.path("reportId").asLong());
+        assertEquals(101L, report.path("applicationId").asLong());
+
+        assertEquals(
+                assessed.path("decision").asText(),
+                report.path("decision").asText()
+        );
+
+        assertEquals(
+                assessed.path("totalScore").asInt(),
+                report.path("totalScore").asInt()
+        );
+
+        assertEquals(
+                assessed.path("cardVersion").asText(),
+                report.path("cardVersion").asText()
+        );
+
+        assertEquals(
+                assessed.at("/breakdown/admission").asText(),
+                report.at("/breakdown/admission").asText()
+        );
+
+        assertEquals(
+                assessed.at("/breakdown/scorecard").asInt(),
+                report.at("/breakdown/scorecard").asInt()
+        );
+
+        // GET 只读取已持久化报告，不能重新执行 WOE。
+        verify(woe, times(1)).evaluate(any(), any());
     }
 }

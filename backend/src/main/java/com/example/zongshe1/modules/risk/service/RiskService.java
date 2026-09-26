@@ -27,7 +27,7 @@ import java.util.Map;
  */
 public interface RiskService {
 
-    /** 第四周真实两阶段评估；只读已有申请，返回尚未落库的报告 DTO。 */
+    /** 第四周真实两阶段评估；执行评估并持久化新版风控报告。 */
     RiskReportDTO assess(RiskAssessmentRequest request);
 
     /**
@@ -55,6 +55,12 @@ public interface RiskService {
      * @return 风控报告实体
      */
     RiskReport getRiskReportByApplicationId(Long applicationId);
+
+    /**
+     * 根据申请ID查询已持久化的新版风控报告。
+     * 仅查询，不重新执行评估。
+     */
+    RiskReportDTO getRiskReportDTOByApplicationId(Long applicationId);
 
     /**
      * 获取所有启用的风控规则评估器
