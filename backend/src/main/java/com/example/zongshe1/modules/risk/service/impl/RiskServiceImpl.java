@@ -63,7 +63,7 @@ public class RiskServiceImpl implements RiskService {
     private final RiskReportAssembler reportAssembler;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public RiskReportDTO assess(RiskAssessmentRequest request) {
         if (request == null || request.getApplicationId() == null || request.getApplicationId() <= 0) {
             throw new BusinessException("有效的 applicationId 不能为空");
@@ -125,9 +125,35 @@ public class RiskServiceImpl implements RiskService {
             dedup.put("enabled", true);
             dedup.put("reused", reused);
         }
-        // 本次仅接线，不写数据库。命中时保留原计算快照和时间，绑定当前申请 ID。
-        RiskReportDTO report = reportAssembler.assemble(result, null, application.getId(), user.getId());
+        RiskReportDTO report = reportAssembler.assemble(
+                result,
+                null,
+                application.getId(),
+                user.getId()
+        );
         report.getBreakdown().put("dedup", dedup);
+
+        // 同一申请维护一份当前风控报告
+        RiskReport entity = riskReportRepository.findByLoanApplication(application)
+                .orElseGet(RiskReport::new);
+
+        entity.setLoanApplication(application);
+
+        // 兼容旧字段
+        entity.setPassed("APPROVED".equals(report.getDecision()));
+        entity.setRejectReason(report.getReasonSummary());
+        entity.setScoringCardPoints(report.getTotalScore());
+        entity.setScoringCardMax(report.getMaxScore());
+        entity.setCardVersion(report.getCardVersion());
+
+        // 保存完整新版报告
+        entity.setDetailsJson(toJson(report));
+
+        entity = riskReportRepository.save(entity);
+
+        // 回填数据库生成的 reportId
+        report.setReportId(entity.getId());
+
         return report;
     }
 
@@ -242,6 +268,33 @@ public class RiskServiceImpl implements RiskService {
         
         return riskReportRepository.findByLoanApplication(application)
                 .orElse(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RiskReportDTO getRiskReportDTOByApplicationId(Long applicationId) {
+        RiskReport entity = riskReportRepository
+                .findByLoanApplication_Id(applicationId)
+                .orElse(null);
+
+        if (entity == null
+                || entity.getDetailsJson() == null
+                || entity.getDetailsJson().isBlank()) {
+            return null;
+        }
+
+        try {
+            RiskReportDTO report =
+                    objectMapper.readValue(entity.getDetailsJson(), RiskReportDTO.class);
+
+            report.setReportId(entity.getId());
+            report.setApplicationId(applicationId);
+
+            return report;
+        } catch (JsonProcessingException e) {
+            log.error("解析新版风控报告失败：applicationId={}", applicationId, e);
+            throw new BusinessException("风控报告数据解析失败");
+        }
     }
 
     @Override

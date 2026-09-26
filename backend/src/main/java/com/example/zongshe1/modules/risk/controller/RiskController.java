@@ -89,29 +89,30 @@ public class RiskController {
     }
 
     @GetMapping("/applications/{applicationId}/report")
-    @Operation(summary = "获取风控报告摘要", description = "查询已持久化的风控报告基础信息")
+    @Operation(
+            summary = "获取风控报告",
+            description = "查询已持久化的新版风控评估结果，不重新执行评估"
+    )
     public ResponseEntity<Map<String, Object>> getReport(@PathVariable Long applicationId) {
         log.info("查询风控报告：applicationId={}", applicationId);
+
         Map<String, Object> result = new HashMap<>();
+
         try {
-            RiskReport report = riskService.getRiskReportByApplicationId(applicationId);
+            RiskReportDTO report =
+                    riskService.getRiskReportDTOByApplicationId(applicationId);
+
             if (report == null) {
                 result.put("success", false);
                 result.put("message", "暂无风控报告");
                 return ResponseEntity.ok(result);
             }
-            Map<String, Object> data = new HashMap<>();
-            data.put("riskReportId", report.getId());
-            data.put("riskScore", report.getRiskScore());
-            data.put("riskLevel", report.getRiskLevel());
-            data.put("passed", report.getPassed());
-            data.put("rejectReason", report.getRejectReason());
-            data.put("scoringCardPoints", report.getScoringCardPoints());
-            data.put("scoringCardMax", report.getScoringCardMax());
-            data.put("cardVersion", report.getCardVersion());
+
             result.put("success", true);
-            result.put("data", data);
+            result.put("data", report);
+
             return ResponseEntity.ok(result);
+
         } catch (Exception e) {
             log.error("查询风控报告失败", e);
             result.put("success", false);
