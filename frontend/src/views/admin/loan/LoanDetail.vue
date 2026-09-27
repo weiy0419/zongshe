@@ -93,66 +93,172 @@
         </div>
 
         <template v-else-if="riskReport">
-          <div class="risk-overview">
-            <section class="content-card risk-score-card" aria-labelledby="risk-score-title">
-              <h3 id="risk-score-title" class="risk-card-title">综合风险分</h3>
-              <div class="risk-score">
-                <strong>{{ displayScore(riskReport.score) }}</strong><span>/ 100 分</span>
-              </div>
-              <span class="risk-level" :class="riskLevel.className">
-                {{ riskLevel.text }}
-              </span>
-              <p class="risk-scale-note">风险分与等级均来自风险报告接口。</p>
-            </section>
-
-            <section class="content-card risk-dimensions-card" aria-labelledby="risk-dimensions-title">
-              <h3 id="risk-dimensions-title" class="risk-card-title">风险维度</h3>
-              <div v-if="riskDimensions.length" class="risk-dimension-list">
-                <div v-for="dimension in riskDimensions" :key="dimension.key" class="risk-dimension">
-                  <div class="risk-dimension-heading">
-                    <span>{{ dimension.label }}</span>
-                    <strong>{{ dimension.score }} <small>/ {{ dimension.max }}</small></strong>
+          <template v-if="hasNewRiskReport">
+            <div class="risk-summary-grid">
+              <section class="content-card risk-decision-summary" aria-labelledby="risk-decision-summary-title">
+                <h3 id="risk-decision-summary-title" class="risk-card-title">决策摘要</h3>
+                <div class="decision-primary">
+                  <span>最终决策</span>
+                  <strong class="decision-badge" :class="decisionDisplay.className">
+                    {{ decisionDisplay.text }}
+                  </strong>
+                </div>
+                <dl class="risk-summary-fields">
+                  <div><dt>准入结果</dt><dd>{{ displayReportValue(riskBreakdown.admission) }}</dd></div>
+                  <div><dt>卡版本</dt><dd>{{ displayValue(riskReport.cardVersion) }}</dd></div>
+                  <div><dt>评估时间</dt><dd>{{ displayDateTime(riskReport.assessedAt) }}</dd></div>
+                  <div><dt>建议额度</dt><dd>{{ formatOptionalAmount(riskBreakdown.suggestLimit) }}</dd></div>
+                  <div class="summary-field-wide"><dt>风险原因摘要</dt><dd>{{ displayValue(riskReport.reasonSummary) }}</dd></div>
+                  <div class="summary-field-wide">
+                    <dt>原因码</dt>
+                    <dd v-if="reasonCodesDisplay.kind === 'missing'">-</dd>
+                    <dd v-else-if="reasonCodesDisplay.kind === 'empty'">无</dd>
+                    <dd v-else class="tag-list">
+                      <span v-for="code in reasonCodesDisplay.values" :key="code" class="report-tag reason-code-tag">
+                        {{ code }}
+                      </span>
+                    </dd>
                   </div>
-                  <progress :value="dimension.score" :max="dimension.max" :aria-label="dimension.label">
-                    {{ dimension.score }} / {{ dimension.max }}
-                  </progress>
-                </div>
-              </div>
-              <p v-else class="risk-inline-empty">详情接口暂未返回风险维度数据。</p>
-            </section>
-          </div>
+                </dl>
+              </section>
 
-          <div class="risk-analysis">
-            <section class="content-card risk-factors-card" aria-labelledby="risk-factors-title">
-              <h3 id="risk-factors-title" class="risk-card-title">风险因素</h3>
-              <div v-if="hasRiskFactors" class="risk-factor-groups">
-                <div class="risk-factor-group positive">
-                  <h4>正向因素</h4>
-                  <ul v-if="riskFactors.positive.length">
-                    <li v-for="factor in riskFactors.positive" :key="factor">{{ factor }}</li>
-                  </ul>
-                  <p v-else class="risk-inline-empty">暂无正向因素</p>
+              <section class="content-card woe-card" aria-labelledby="woe-card-title">
+                <h3 id="woe-card-title" class="risk-card-title">WOE申请卡</h3>
+                <div class="woe-score">
+                  <span>WOE申请卡得分</span>
+                  <strong>{{ displayScore(riskReport.totalScore) }}</strong>
+                  <small>/ {{ displayScore(riskReport.maxScore) }}</small>
                 </div>
-                <div class="risk-factor-group negative">
-                  <h4>风险因素</h4>
-                  <ul v-if="riskFactors.negative.length">
-                    <li v-for="factor in riskFactors.negative" :key="factor">{{ factor }}</li>
-                  </ul>
-                  <p v-else class="risk-inline-empty">暂无风险因素</p>
-                </div>
-              </div>
-              <p v-else class="risk-inline-empty">详情接口暂未返回风险因素。</p>
-            </section>
+                <dl class="compact-fields">
+                  <div><dt>申请卡结果</dt><dd>{{ displayReportValue(riskBreakdown.scorecard) }}</dd></div>
+                  <div><dt>申请卡版本</dt><dd>{{ displayValue(riskBreakdown.scorecardVersion ?? riskReport.cardVersion) }}</dd></div>
+                  <template v-if="scorecardDetails">
+                    <div><dt>模型开关</dt><dd>{{ enabledText(scorecardDetails.enabled) }}</dd></div>
+                    <div><dt>详情得分</dt><dd>{{ displayScore(scorecardDetails.score) }}</dd></div>
+                    <div><dt>详情满分</dt><dd>{{ displayScore(scorecardDetails.maxScore) }}</dd></div>
+                    <div><dt>详情版本</dt><dd>{{ displayValue(scorecardDetails.version) }}</dd></div>
+                  </template>
+                </dl>
+                <p class="risk-scale-note">该分数是申请卡资质分，分数越高代表资质越好。</p>
+              </section>
+            </div>
 
-            <section class="content-card risk-decision-card" aria-labelledby="risk-decision-title">
-              <h3 id="risk-decision-title" class="risk-card-title">审批建议</h3>
-              <dl class="risk-decision-fields">
-                <div><dt>建议结果</dt><dd>{{ riskSuggestion }}</dd></div>
-                <div><dt>建议额度</dt><dd class="risk-decision-amount">{{ formatLoanAmount(riskDecisionAmount) }}</dd></div>
-              </dl>
-              <p class="risk-decision-note">此处仅展示接口数据，不执行审批或修改申请状态。</p>
-            </section>
-          </div>
+            <div class="risk-model-grid">
+              <section class="content-card model-status-card" aria-labelledby="model-status-title">
+                <h3 id="model-status-title" class="risk-card-title">模型启用状态</h3>
+                <div class="enabled-models">
+                  <span>当前启用模型</span>
+                  <div v-if="enabledModelsDisplay.kind === 'values'" class="tag-list">
+                    <span v-for="model in enabledModelsDisplay.values" :key="model" class="report-tag model-tag">
+                      {{ model }}
+                    </span>
+                  </div>
+                  <strong v-else-if="enabledModelsDisplay.kind === 'empty'">未启用授信模型</strong>
+                  <strong v-else>-</strong>
+                </div>
+                <ul class="model-status-list">
+                  <li v-for="model in modelStatuses" :key="model.key">
+                    <span>{{ model.label }}</span>
+                    <strong :class="model.className">{{ model.text }}</strong>
+                  </li>
+                </ul>
+              </section>
+
+              <section class="content-card rules-card" aria-labelledby="rules-title">
+                <h3 id="rules-title" class="risk-card-title">硬规则 / 两阶段</h3>
+                <dl class="compact-fields rule-summary-fields">
+                  <div><dt>评估阶段</dt><dd>{{ displayReportValue(riskBreakdown.stage) }}</dd></div>
+                  <div><dt>准入结果</dt><dd>{{ displayReportValue(riskBreakdown.admission) }}</dd></div>
+                  <div><dt>规则结果</dt><dd>{{ displayReportValue(riskBreakdown.rules) }}</dd></div>
+                </dl>
+                <div v-if="ruleResults.length" class="rule-result-list">
+                  <article v-for="(rule, index) in ruleResults" :key="`${rule.stage || 'rule'}-${index}`" class="rule-result-item">
+                    <div>
+                      <span>{{ displayValue(rule.stage) }}</span>
+                      <strong>{{ displayValue(rule.ruleName) }}</strong>
+                    </div>
+                    <span class="rule-result-status" :class="rulePassedDisplay(rule.passed).className">
+                      {{ rulePassedDisplay(rule.passed).text }}
+                    </span>
+                    <p>{{ displayValue(rule.reason) }}</p>
+                  </article>
+                </div>
+                <p v-else class="risk-inline-empty">暂无规则明细。</p>
+              </section>
+            </div>
+
+            <aside v-if="riskDedup" class="dedup-note" aria-label="风险评估去重状态">
+              <strong>{{ dedupDisplay.title }}</strong>
+              <span>{{ dedupDisplay.detail }}</span>
+            </aside>
+          </template>
+
+          <template v-else>
+            <div class="legacy-report-note">以下为历史旧版风险报告。</div>
+            <div class="risk-overview">
+              <section class="content-card risk-score-card" aria-labelledby="legacy-risk-score-title">
+                <h3 id="legacy-risk-score-title" class="risk-card-title">旧版风险分</h3>
+                <div class="risk-score">
+                  <strong>{{ displayScore(riskReport.score) }}</strong><span>/ 100 分</span>
+                </div>
+                <span class="risk-level" :class="riskLevel.className">
+                  {{ riskLevel.text }}
+                </span>
+                <dl class="legacy-summary-fields">
+                  <div><dt>风控结论</dt><dd>{{ legacyPassedText }}</dd></div>
+                  <div><dt>拒绝原因</dt><dd>{{ displayValue(riskReport.rejectReason) }}</dd></div>
+                </dl>
+              </section>
+
+              <section class="content-card risk-dimensions-card" aria-labelledby="legacy-risk-dimensions-title">
+                <h3 id="legacy-risk-dimensions-title" class="risk-card-title">旧版评分维度</h3>
+                <div v-if="riskDimensions.length" class="risk-dimension-list">
+                  <div v-for="dimension in riskDimensions" :key="dimension.key" class="risk-dimension">
+                    <div class="risk-dimension-heading">
+                      <span>{{ dimension.label }}</span>
+                      <strong>{{ dimension.score }} <small>/ {{ dimension.max }}</small></strong>
+                    </div>
+                    <progress :value="dimension.score" :max="dimension.max" :aria-label="dimension.label">
+                      {{ dimension.score }} / {{ dimension.max }}
+                    </progress>
+                  </div>
+                </div>
+                <p v-else class="risk-inline-empty">旧报告暂未返回评分维度数据。</p>
+              </section>
+            </div>
+
+            <div class="risk-analysis">
+              <section class="content-card risk-factors-card" aria-labelledby="legacy-risk-factors-title">
+                <h3 id="legacy-risk-factors-title" class="risk-card-title">旧版风险因素</h3>
+                <div v-if="hasRiskFactors" class="risk-factor-groups">
+                  <div class="risk-factor-group positive">
+                    <h4>正向因素</h4>
+                    <ul v-if="riskFactors.positive.length">
+                      <li v-for="factor in riskFactors.positive" :key="factor">{{ factor }}</li>
+                    </ul>
+                    <p v-else class="risk-inline-empty">暂无正向因素</p>
+                  </div>
+                  <div class="risk-factor-group negative">
+                    <h4>风险因素</h4>
+                    <ul v-if="riskFactors.negative.length">
+                      <li v-for="factor in riskFactors.negative" :key="factor">{{ factor }}</li>
+                    </ul>
+                    <p v-else class="risk-inline-empty">暂无风险因素</p>
+                  </div>
+                </div>
+                <p v-else class="risk-inline-empty">旧报告暂未返回风险因素。</p>
+              </section>
+
+              <section class="content-card risk-decision-card" aria-labelledby="legacy-risk-decision-title">
+                <h3 id="legacy-risk-decision-title" class="risk-card-title">旧版审批建议</h3>
+                <dl class="risk-decision-fields">
+                  <div><dt>建议结果</dt><dd>{{ riskSuggestion }}</dd></div>
+                  <div><dt>建议额度</dt><dd class="risk-decision-amount">{{ formatLoanAmount(riskDecisionAmount) }}</dd></div>
+                </dl>
+                <p class="risk-decision-note">旧版报告仅用于兼容历史数据。</p>
+              </section>
+            </div>
+          </template>
         </template>
 
         <div v-else class="content-card risk-no-report" role="status">
@@ -236,12 +342,46 @@ const applyTime = computed(() => firstValue(application.value, 'applyTime', 'app
 const canReviewApplication = computed(() => normalizeLoanApplicationStatus(application.value?.status) === 'PENDING')
 const pendingActionLabel = computed(() => pendingAction.value === 'approve' ? '通过' : '拒绝')
 
+const riskBreakdown = computed(() => isRecord(riskReport.value?.breakdown) ? riskReport.value.breakdown : {})
+const hasNewRiskReport = computed(() => {
+  const report = riskReport.value
+  if (!report) return false
+  return hasValue(report.decision)
+    || hasValue(report.totalScore)
+    || hasValue(report.maxScore)
+    || hasOwn(report, 'reasonCodes')
+    || isRecord(report.breakdown)
+    || isRecord(report.featureSnapshot)
+})
+const decisionDisplay = computed(() => decisionText(riskReport.value?.decision))
+const reasonCodesDisplay = computed(() => listFieldDisplay(riskReport.value, 'reasonCodes'))
+const enabledModelsDisplay = computed(() => listFieldDisplay(riskBreakdown.value, 'enabledModels'))
+const scorecardDetails = computed(() => isRecord(riskBreakdown.value.scorecardDetails)
+  ? riskBreakdown.value.scorecardDetails
+  : null)
+const ruleResults = computed(() => Array.isArray(riskBreakdown.value.ruleResults)
+  ? riskBreakdown.value.ruleResults.filter(isRecord)
+  : [])
+const riskDedup = computed(() => isRecord(riskBreakdown.value.dedup) ? riskBreakdown.value.dedup : null)
+const dedupDisplay = computed(() => dedupStatus(riskDedup.value))
+const modelStatuses = computed(() => [
+  modelStatus('woe', 'WOE申请卡', riskBreakdown.value.scorecard),
+  modelStatus('rules', '硬规则', riskBreakdown.value.rules),
+  modelStatus('external', '外部数据', riskBreakdown.value.external, riskBreakdown.value.skipped?.external),
+  modelStatus('behavior', '行为模型', riskBreakdown.value.behavior, riskBreakdown.value.skipped?.behavior)
+])
 const riskLevel = computed(() => riskLevelDisplay(riskReport.value?.level))
+const legacyPassedText = computed(() => {
+  const passed = firstValue(riskReport.value, 'passed', 'riskPassed')
+  if (passed === true) return '通过'
+  if (passed === false) return '未通过'
+  return '—'
+})
 
 const riskDimensions = computed(() => {
   if (!riskReport.value) return []
   const dimensions = []
-  addDimension(dimensions, 'scoring-card', '评分卡得分', firstValue(riskReport.value, 'scoringCardPoints'), firstValue(riskReport.value, 'scoringCardMax') || 100)
+  addDimension(dimensions, 'scoring-card', '旧版评分卡', firstValue(riskReport.value, 'scoringCardPoints'), firstValue(riskReport.value, 'scoringCardMax') || 100)
   addDimension(dimensions, 'credit', '信用评分', firstValue(riskReport.value, 'creditScore'), 100)
   addDimension(dimensions, 'behavior', '行为评分', firstValue(riskReport.value, 'behaviorScore'), 100)
   addDimension(dimensions, 'external', '外部数据评分', firstValue(riskReport.value, 'externalScore', 'externalDataScore'), 100)
@@ -274,8 +414,84 @@ function hasValue(value) {
   return value !== null && value !== undefined && value !== ''
 }
 
+function hasOwn(source, key) {
+  return Boolean(source && Object.prototype.hasOwnProperty.call(source, key))
+}
+
+function isRecord(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
 function displayValue(value) {
   return hasValue(value) ? String(value) : '—'
+}
+
+function displayReportValue(value) {
+  if (!hasValue(value)) return '-'
+  if (typeof value === 'boolean') return value ? '是' : '否'
+  if (Array.isArray(value)) return value.length ? value.map(String).join('、') : '无'
+  if (isRecord(value)) return '已返回'
+  return String(value)
+}
+
+function decisionText(value) {
+  const normalized = String(value ?? '').trim().toLocaleUpperCase()
+  const mapping = {
+    APPROVED: { text: '通过', className: 'approved' },
+    REJECTED: { text: '拒绝', className: 'rejected' },
+    MANUAL_REVIEW: { text: '转人工', className: 'manual' }
+  }
+  return mapping[normalized] || {
+    text: hasValue(value) ? String(value) : '-',
+    className: 'unknown'
+  }
+}
+
+function listFieldDisplay(source, key) {
+  if (!hasOwn(source, key)) return { kind: 'missing', values: [] }
+  if (!Array.isArray(source[key])) return { kind: 'missing', values: [] }
+  const values = source[key].filter(hasValue).map(String)
+  return values.length ? { kind: 'values', values } : { kind: 'empty', values: [] }
+}
+
+function enabledText(value) {
+  if (value === true) return '已启用'
+  if (value === false) return '未启用'
+  return '-'
+}
+
+function modelStatus(key, label, value, skippedReason) {
+  if (hasValue(value)) return { key, label, text: '已执行', className: 'completed' }
+  if (String(skippedReason || '').toLocaleUpperCase() === 'NOT_IMPLEMENTED') {
+    return { key, label, text: '暂未实现', className: 'unavailable' }
+  }
+  return { key, label, text: '未执行', className: 'pending' }
+}
+
+function dedupStatus(dedup) {
+  if (!dedup) return { title: '', detail: '' }
+  if (String(dedup.skipped || '').toLocaleUpperCase() === 'MISSING_PRODUCT_ID') {
+    return {
+      title: '本次未启用去重（缺少产品信息）',
+      detail: '本次评估已直接重新计算。'
+    }
+  }
+  if (dedup.enabled === true) {
+    return {
+      title: '去重机制：已启用',
+      detail: dedup.reused === true ? '本次评估：复用近期结果' : '本次评估：重新计算'
+    }
+  }
+  return {
+    title: '去重机制：未启用',
+    detail: dedup.reused === true ? '本次评估：复用近期结果' : '本次评估：重新计算'
+  }
+}
+
+function rulePassedDisplay(value) {
+  if (value === true) return { text: '通过', className: 'passed' }
+  if (value === false) return { text: '未通过', className: 'failed' }
+  return { text: '未知', className: 'unknown' }
 }
 
 function loanStatusText(status) {
@@ -310,11 +526,20 @@ function formatLoanTerm(value) {
   return hasValue(value) ? `${value} 个月` : '—'
 }
 
+function formatOptionalAmount(value) {
+  return hasValue(value) ? formatLoanAmount(value) : '-'
+}
+
 function dateTimeValue(value) {
   return hasValue(value) ? String(value).replace(' ', 'T') : ''
 }
 
 function displayDateTime(value) {
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day, hour = 0, minute = 0, second = 0] = value
+    const pad = number => String(number).padStart(2, '0')
+    return `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}:${pad(second)}`
+  }
   return hasValue(value) ? String(value).replace('T', ' ').slice(0, 19) : '—'
 }
 
