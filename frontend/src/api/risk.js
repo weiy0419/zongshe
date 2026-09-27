@@ -28,14 +28,16 @@ function normalizeRiskReport(report) {
 
   const passed = firstValue(report, 'passed', 'riskPassed')
   const rejectReason = firstValue(report, 'rejectReason')
+  const legacyScore = firstValue(report, 'score', 'riskScore', 'overallRiskScore')
+  const legacyLevel = firstValue(report, 'level', 'riskLevel', 'overallRiskLevel')
   const suggestion = firstValue(report, 'suggestion', 'advice')
     ?? (rejectReason || (passed === true ? '建议通过' : passed === false ? '建议拒绝' : undefined))
 
   return {
     ...report,
-    score: firstValue(report, 'score', 'riskScore', 'overallRiskScore'),
-    level: firstValue(report, 'level', 'riskLevel', 'overallRiskLevel'),
-    suggestion
+    ...(legacyScore !== undefined ? { score: legacyScore } : {}),
+    ...(legacyLevel !== undefined ? { level: legacyLevel } : {}),
+    ...(suggestion !== undefined ? { suggestion } : {})
   }
 }
 
@@ -51,8 +53,9 @@ export async function getRiskReport(applicationId) {
   )
 
   if (response.success === false) {
-    if (String(response.message || '').includes('暂无')) return null
-    throw new Error(response.message || '风险报告加载失败')
+    const message = String(response.message || '').trim()
+    if (message === '暂无风控报告' || message.includes('暂无')) return null
+    throw new Error(message || '风险报告加载失败')
   }
 
   return normalizeRiskReport(ensureObject(response.data, '风险报告返回格式异常'))

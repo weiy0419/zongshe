@@ -2,6 +2,55 @@
 .risk-report-header { margin-bottom: 18px; }
 .risk-report-header h2 { margin: 0 0 6px; color: var(--loan-text); font-size: 22px; }
 .risk-report-header p { margin: 0; color: var(--loan-muted); font-size: 13px; }
+.risk-summary-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 24px; margin-bottom: 24px; }
+.risk-decision-summary, .woe-card, .model-status-card, .rules-card { padding: 24px; }
+.decision-primary { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; padding: 16px 18px; border-radius: 8px; background: #f5f9ff; color: var(--loan-muted); font-size: 14px; }
+.decision-badge { display: inline-flex; align-items: center; min-height: 30px; padding: 0 14px; border-radius: 18px; background: #eef1f5; color: #53657d; font-size: 14px; }
+.decision-badge.approved { background: #e0f5e9; color: #08794a; }
+.decision-badge.rejected { background: #fff1f0; color: #b91c1c; }
+.decision-badge.manual { background: #fff0d2; color: #985500; }
+.risk-summary-fields, .compact-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 0; }
+.risk-summary-fields > div, .compact-fields > div { min-width: 0; }
+.risk-summary-fields dt, .compact-fields dt { margin-bottom: 6px; color: var(--loan-muted); font-size: 12px; }
+.risk-summary-fields dd, .compact-fields dd { margin: 0; color: var(--loan-text); font-size: 14px; overflow-wrap: anywhere; }
+.risk-summary-fields .summary-field-wide { grid-column: 1 / -1; padding-top: 14px; border-top: 1px solid var(--loan-border); }
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.report-tag { display: inline-flex; align-items: center; min-height: 25px; padding: 0 10px; border-radius: 14px; font-size: 12px; font-weight: 600; }
+.reason-code-tag { background: #fff0d2; color: #8a5200; }
+.model-tag { background: #e7f1ff; color: #0965d9; }
+.woe-score { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; margin-bottom: 22px; padding-bottom: 20px; border-bottom: 1px solid var(--loan-border); color: #0965d9; font-variant-numeric: tabular-nums; }
+.woe-score > span { flex-basis: 100%; margin-bottom: 2px; color: var(--loan-muted); font-size: 13px; }
+.woe-score strong { font-size: 42px; line-height: 1; }
+.woe-score small { color: var(--loan-muted); font-size: 14px; }
+.risk-model-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr); align-items: start; gap: 24px; }
+.enabled-models { display: grid; gap: 10px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--loan-border); }
+.enabled-models > span { color: var(--loan-muted); font-size: 12px; }
+.enabled-models > strong { color: var(--loan-text); font-size: 14px; }
+.model-status-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.model-status-list li { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid #edf2f8; color: var(--loan-text); font-size: 14px; }
+.model-status-list li:last-child { border-bottom: 0; }
+.model-status-list strong { font-size: 13px; }
+.model-status-list .completed { color: #08794a; }
+.model-status-list .pending { color: #687991; }
+.model-status-list .unavailable { color: #985500; }
+.rule-summary-fields { margin-bottom: 20px; }
+.rule-result-list { display: grid; gap: 12px; }
+.rule-result-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; padding: 14px 16px; border: 1px solid #e5edf7; border-radius: 8px; background: #fbfdff; }
+.rule-result-item > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.rule-result-item > div span { padding: 2px 7px; border-radius: 4px; background: #e7f1ff; color: #0965d9; font-size: 11px; }
+.rule-result-item > div strong { overflow-wrap: anywhere; font-size: 14px; }
+.rule-result-item p { grid-column: 1 / -1; margin: 0; color: var(--loan-muted); font-size: 13px; overflow-wrap: anywhere; }
+.rule-result-status { font-size: 12px; font-weight: 600; }
+.rule-result-status.passed { color: #08794a; }
+.rule-result-status.failed { color: #b91c1c; }
+.rule-result-status.unknown { color: #687991; }
+.dedup-note { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; padding: 12px 16px; border: 1px solid #dce8f7; border-radius: 8px; background: #f7faff; color: var(--loan-muted); font-size: 13px; }
+.dedup-note strong { color: #31506f; }
+.legacy-report-note { margin-bottom: 16px; padding: 10px 14px; border: 1px solid #f0dfb9; border-radius: 6px; background: #fffaf0; color: #7d5b17; font-size: 13px; }
+.legacy-summary-fields { display: grid; gap: 12px; margin: 20px 0 0; padding-top: 18px; border-top: 1px solid var(--loan-border); }
+.legacy-summary-fields div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; }
+.legacy-summary-fields dt { color: var(--loan-muted); font-size: 12px; }
+.legacy-summary-fields dd { margin: 0; overflow-wrap: anywhere; font-size: 13px; }
 .risk-overview { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 24px; margin-bottom: 24px; }
 .risk-score-card, .risk-dimensions-card, .risk-factors-card, .risk-decision-card { padding: 24px; }
 .risk-card-title { margin: 0 0 20px; font-size: 17px; font-weight: 600; }
@@ -36,13 +85,19 @@
 .risk-decision-note { margin: 20px 0 0; color: var(--loan-muted); font-size: 12px; }
 .risk-no-report { padding: 32px 24px; color: var(--loan-muted); text-align: center; font-size: 14px; }
 @media (max-width: 1100px) {
-  .risk-overview, .risk-analysis { grid-template-columns: minmax(0, 1fr); }
+  .risk-summary-grid, .risk-model-grid, .risk-overview, .risk-analysis { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
-  .risk-overview, .risk-analysis { gap: 18px; }
+  .risk-summary-grid, .risk-model-grid, .risk-overview, .risk-analysis { gap: 18px; }
+  .risk-summary-grid { margin-bottom: 18px; }
   .risk-overview { margin-bottom: 18px; }
-  .risk-score-card, .risk-dimensions-card, .risk-factors-card, .risk-decision-card { padding: 18px; }
+  .risk-decision-summary, .woe-card, .model-status-card, .rules-card, .risk-score-card, .risk-dimensions-card, .risk-factors-card, .risk-decision-card { padding: 18px; }
+  .risk-summary-fields, .compact-fields { grid-template-columns: minmax(0, 1fr); }
+  .risk-summary-fields .summary-field-wide { grid-column: auto; }
+  .decision-primary { align-items: flex-start; flex-direction: column; }
   .risk-factor-groups { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .risk-report-header h2 { font-size: 20px; }
   .risk-score strong { font-size: 42px; }
+  .rule-result-item { grid-template-columns: minmax(0, 1fr); }
+  .rule-result-status, .rule-result-item p { grid-column: 1; }
 }
