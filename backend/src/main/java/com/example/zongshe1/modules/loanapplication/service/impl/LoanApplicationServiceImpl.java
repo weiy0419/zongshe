@@ -221,6 +221,7 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
         application.setPhoneNumber(user.getPhoneNumber());
 
         // 字段映射改造：
+        application.setProductId(dto.getProductId());
         application.setLoanType("个人消费贷"); // 也可以通过 dto.getProductId() 去查询 Product 表获取具体类型
         application.setLoanAmount(dto.getAmount());
         application.setLoanTerm(dto.getTermMonths());
@@ -259,6 +260,7 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
             // 7.2 调用岳炜杰的风控评估接口
             String assessUrl = "http://localhost:8080/api/risk/assess";
             Map<String, Object> assessRequest = new HashMap<>();
+            assessRequest.put("productId", application.getProductId()); // 透传真实 productId
             assessRequest.put("applicationId", application.getId());
             assessRequest.put("policyVersion", policyVersion); // 【新增】传入策略版本号
 

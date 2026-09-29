@@ -12,6 +12,7 @@ public class LoanApplicationDTO {
     private String applicantName;
     private String idCardNumber;
     private String phoneNumber;
+    private Long productId;
     private String loanType;
     private BigDecimal loanAmount;
     private Integer loanTerm;

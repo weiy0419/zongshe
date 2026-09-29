@@ -84,6 +84,9 @@ public class LoanApplication {
     @Column(name = "policy_version")
     private Integer policyVersion;
     
+    @Column(name = "product_id")
+    private Long productId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
