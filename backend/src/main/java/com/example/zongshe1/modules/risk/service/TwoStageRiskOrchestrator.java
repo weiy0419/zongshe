@@ -21,12 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * 仅编排、算分，不读写申请状态或报告。现有非评分卡规则作为准入规则。
- * 第四周：硬规则准入通过后，按启用集合执行 WOE 申请卡授信。
- * 旧外部数据硬规则仍用于准入，不代表外部公示授信模型已实现。
- * 新服务尚未被 Controller / RiskService 调用，不改变旧评估链。
- */
+/** 硬规则准入通过后按请求执行模型，分别保留模型结果。 */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -36,6 +31,9 @@ public class TwoStageRiskOrchestrator {
     private final ScoringCardRiskEvaluator scoringCard;
     private final FeatureContextService featureContextService;
     private final CurrentRiskFeatures currentRiskFeatures;
+    private final com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel externalPublicModel;
+
+    private final com.example.zongshe1.modules.risk.service.ahp.AhpFusionService ahpFusion;
 
     /** 无申请 ID / 报告 ID，可供去重层缓存计算结果，持久化由后续接入层负责。 */
     public record Result(String stage, String admission, String decision, String reasonSummary,
@@ -52,16 +50,16 @@ public class TwoStageRiskOrchestrator {
     public Result assess(User user, LoanApplication application, List<String> enabledModels) {
         Objects.requireNonNull(user, "user 不能为空");
         Objects.requireNonNull(application, "application 不能为空");
-        List<String> models = enabledModels == null ? List.of("WOE") : new ArrayList<>(enabledModels);
-        if (models.stream().anyMatch(model -> !"WOE".equals(model))) {
-            throw new IllegalArgumentException("第四周仅支持 WOE 授信模型，其他模型尚未实现");
-        }
-        models = models.stream().distinct().toList();
+        List<String> models = EnabledRiskModels.normalize(enabledModels);
         boolean woeEnabled = models.contains("WOE") && scoringCard.isEnabled();
         FeatureSnapshot previous = currentRiskFeatures.get();
         List<Map<String, Object>> results = new ArrayList<>();
         Map<String, Object> features = new LinkedHashMap<>();
         features.put("enabledModels", models);
+        Map<String, Object> modelResults = new LinkedHashMap<>();
+        List<String> executedModels = new ArrayList<>();
+        features.put("modelResults", modelResults);
+        features.put("executedModels", executedModels);
         String stage = "ADMISSION";
         Map<String, Object> cardA = Map.of("enabled", woeEnabled,
                 "skipped", woeEnabled ? "ADMISSION_NOT_PASSED" : "DISABLED");
@@ -69,7 +67,16 @@ public class TwoStageRiskOrchestrator {
             FeatureSnapshot snapshot = featureContextService.build(user, application);
             features.putAll(snapshot.getFeatures());
             features.put("enabledModels", models);
+            features.put("modelResults", modelResults);
+            features.put("executedModels", executedModels);
             currentRiskFeatures.set(snapshot);
+            Map<String, Object> dishonest = BasicRiskRuleEvaluator.evaluateDishonest(snapshot);
+            if (!Boolean.TRUE.equals(dishonest.get("passed"))) {
+                dishonest.put("stage", stage);
+                results.add(dishonest);
+                return result(stage, "REJECTED", "REJECTED", reason(dishonest),
+                        results, cardA, features, List.of(RiskReasonCode.DISHONEST_PUBLIC));
+            }
             List<RiskRuleEvaluator> admissionRules = evaluators.stream()
                     .filter(rule -> !(rule instanceof ScoringCardRiskEvaluator))
                     .filter(RiskRuleEvaluator::isEnabled)
@@ -88,11 +95,31 @@ public class TwoStageRiskOrchestrator {
                 }
             }
             stage = "CREDIT";
+            if (models.contains("EXTERNAL")) {
+                executedModels.add("EXTERNAL");
+                Map<String, Object> external = externalPublicModel.evaluate(snapshot);
+                modelResults.put("EXTERNAL", external);
+                if (models.size() == 1 || !woeEnabled) {
+                    String decision = (String) external.get("decision");
+                    features.put("fusionMode", "SINGLE");
+                    features.put("credit", Map.of("status", "COMPLETED", "modelName", "EXTERNAL",
+                            "score", external.get("score"), "maxScore", external.get("maxScore"),
+                            "decision", decision));
+                    return result(stage, "PASS", decision, "EXTERNAL 单模型得分 " + external.get("score")
+                                    + "/100，按模型明细中的配置阈值决策",
+                            results, cardA, features, "APPROVED".equals(decision)
+                                    ? List.of() : List.of(RiskReasonCode.CREDIT_LOW));
+                }
+            }
             if (!woeEnabled) {
+                features.put("fusionMode", models.isEmpty() ? "SKIPPED" : "NOT_EXECUTED");
+                features.put("credit", Map.of("status", "SKIPPED", "skipped",
+                        models.isEmpty() ? "NO_ENABLED_MODELS" : "MODEL_DISABLED"));
                 cardA = Map.of("enabled", false, "skipped", "DISABLED");
-                return result(stage, "PASS", "MANUAL_REVIEW", "准入已通过，WOE 申请卡未启用，授信未执行，需人工复核",
+                return result(stage, "PASS", "MANUAL_REVIEW", "准入已通过，未启用 WOE 自动决策，需人工复核",
                         results, cardA, features, List.of(RiskReasonCode.MANUAL_REVIEW));
             }
+            executedModels.add("WOE");
             Map<String, Object> scored = evaluate(scoringCard, user, application, stage);
             results.add(scored);
             if (!(scored.get("details") instanceof Map<?, ?> details)
@@ -107,7 +134,22 @@ public class TwoStageRiskOrchestrator {
             cardA.put("maxScore", details.get("maxPoints"));
             cardA.put("version", details.get("cardVersion"));
             cardA.put("breakdown", details.get("breakdown"));
+            modelResults.put("WOE", Map.of("modelName", "WOE", "score", details.get("totalPoints"),
+                    "maxScore", details.get("maxPoints"), "version", details.get("cardVersion"),
+                    "breakdown", details.get("breakdown")));
+            if (models.contains("EXTERNAL")) {
+                features.putAll(ahpFusion.fuse(modelResults, snapshot));
+                Map<?, ?> credit = (Map<?, ?>) features.get("credit");
+                String decision = (String) credit.get("decision");
+                return result(stage, "PASS", decision, "AHP 动态融合得分 " + credit.get("score") + "/100",
+                        results, cardA, features, "APPROVED".equals(decision)
+                                ? List.of() : List.of(RiskReasonCode.CREDIT_LOW));
+            }
             boolean passed = Boolean.TRUE.equals(scored.get("passed"));
+            features.put("fusionMode", "SINGLE");
+            features.put("credit", Map.of("status", "COMPLETED", "modelName", "WOE",
+                    "score", details.get("totalPoints"), "maxScore", details.get("maxPoints"),
+                    "decision", passed ? "APPROVED" : "REJECTED"));
             return result(stage, "PASS", passed ? "APPROVED" : "REJECTED", reason(scored),
                     results, cardA, features, passed ? List.of() : List.of(RiskReasonCode.CREDIT_LOW));
         } catch (RuntimeException exception) {

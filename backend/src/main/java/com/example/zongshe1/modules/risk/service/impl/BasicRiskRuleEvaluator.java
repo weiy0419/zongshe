@@ -32,6 +32,17 @@ import java.util.Map;
 @Order(1) // 基础规则优先级最高，最先执行
 public class BasicRiskRuleEvaluator implements RiskRuleEvaluator {
 
+    /** 复用基础准入规则，公示命中必须先于授信模型执行。 */
+    public static Map<String, Object> evaluateDishonest(
+            com.example.zongshe1.modules.risk.feature.FeatureSnapshot snapshot) {
+        if (Boolean.TRUE.equals(snapshot.get("dishonestHit"))) {
+            return new HashMap<>(Map.of("passed", false, "ruleName", "DISHONEST_PUBLIC",
+                    "reason", "失信公示命中", "reasonCodes",
+                    java.util.List.of(com.example.zongshe1.common.enums.RiskReasonCode.DISHONEST_PUBLIC)));
+        }
+        return Map.of("passed", true);
+    }
+
     @Value("${app.system.min-credit-score-for-loan:450}")
     private Integer minCreditScoreForLoan;
 

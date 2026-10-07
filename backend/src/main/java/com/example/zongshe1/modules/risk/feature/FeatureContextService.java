@@ -22,6 +22,7 @@ public class FeatureContextService {
 
     private final ExternalDataOrchestrator orchestrator;
     private final List<ExternalDataSourceAdapter> adapters;
+    private final RiskFeatureQueryService publicFeatures;
 
     public FeatureSnapshot build(User user, LoanApplication application) {
         FeatureSnapshot snapshot = new FeatureSnapshot();
@@ -51,6 +52,12 @@ public class FeatureContextService {
         }
 
         snapshot.put("required_source_failed", hasRequiredSourceFailure(results));
+        var publicSnapshot = publicFeatures.query(user);
+        snapshot.put("dishonestHit", publicSnapshot.getDishonestHit());
+        snapshot.put("lpr1y", publicSnapshot.getLpr1y());
+        snapshot.put("lpr5y", publicSnapshot.getLpr5y());
+        snapshot.put("stale", publicSnapshot.getStale());
+        snapshot.put("loan_term", application.getLoanTerm());
         return snapshot;
     }
 

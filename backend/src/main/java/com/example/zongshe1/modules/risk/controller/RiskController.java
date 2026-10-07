@@ -37,6 +37,12 @@ public class RiskController {
         return ResponseEntity.ok(riskService.assess(request));
     }
 
+    @PostMapping("/replay/{reportId}")
+    @Operation(summary = "历史风险报告回放", description = "仅返回历史持久化结果，不查询当前特征或重新计算")
+    public ResponseEntity<RiskReportDTO> replay(@PathVariable Long reportId) {
+        return ResponseEntity.ok(riskService.replay(reportId));
+    }
+
     @GetMapping("/features/{userId}")
     @Operation(
             summary = "查询用户风控特征快照",

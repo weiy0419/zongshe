@@ -68,7 +68,7 @@ class RiskAssessmentWiringTest {
         ReflectionTestUtils.setField(scoring, "enabled", true);
         ReflectionTestUtils.setField(scoring, "passMinPoints", 40);
         List<RiskRuleEvaluator> rules = List.of(basic, scoring);
-        orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current);
+        orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current, new com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel(), new com.example.zongshe1.modules.risk.service.ahp.AhpFusionService(new com.example.zongshe1.modules.risk.service.ahp.AhpMatrixBuilder(), new com.example.zongshe1.modules.risk.service.ahp.AhpWeightCalculator()));
         service = new RiskServiceImpl(rules, applications, users, reports, features, current,
                 new ObjectMapper().findAndRegisterModules(), products, orchestrator, dedup,
                 new RiskReportAssembler());
@@ -83,6 +83,7 @@ class RiskAssessmentWiringTest {
         application.setLoanTerm(12);
         request = new RiskAssessmentRequest();
         request.setApplicationId(101L);
+        lenient().when(reports.save(any())).thenAnswer(i -> i.getArgument(0));
     }
 
     private void givenApplication() {
@@ -118,9 +119,10 @@ class RiskAssessmentWiringTest {
                 .andExpect(jsonPath("$.totalScore").value(100))
                 .andExpect(jsonPath("$.cardVersion").value("woe-card-v1"))
                 .andExpect(jsonPath("$.breakdown.enabledModels[0]").value("WOE"))
-                .andExpect(jsonPath("$.breakdown.skipped.external").value("NOT_IMPLEMENTED"))
+                .andExpect(jsonPath("$.breakdown.skipped.external").value("DISABLED"))
                 .andExpect(jsonPath("$.breakdown.dedup.skipped").value("MISSING_PRODUCT_ID"));
-        verifyNoInteractions(dedup, products, reports);
+        verifyNoInteractions(dedup, products);
+        verify(reports).save(any());
         assertNull(current.get());
     }
 
@@ -135,7 +137,7 @@ class RiskAssessmentWiringTest {
         assertNull(report.getTotalScore());
         assertEquals(List.of(), report.getBreakdown().get("enabledModels"));
         assertEquals("DISABLED", ((Map<?, ?>) report.getBreakdown().get("skipped")).get("scorecard"));
-        verifyNoInteractions(reports);
+        verify(reports).save(any());
     }
 
     @Test
@@ -166,7 +168,7 @@ class RiskAssessmentWiringTest {
         assertEquals("MANUAL_REVIEW", report.getDecision());
         assertEquals(List.of(), report.getBreakdown().get("enabledModels"));
         assertEquals(false, ((Map<?, ?>) report.getBreakdown().get("dedup")).get("reused"));
-        verifyNoInteractions(reports);
+        verify(reports).save(any());
     }
 
     @Test
@@ -192,7 +194,8 @@ class RiskAssessmentWiringTest {
         assertEquals(cached.assessedAt(), report.getAssessedAt());
         assertEquals(new BigDecimal("10000"), report.getFeatureSnapshot().getLoanAmount());
         assertEquals(true, ((Map<?, ?>) report.getBreakdown().get("dedup")).get("reused"));
-        verifyNoInteractions(features, reports);
+        verifyNoInteractions(features);
+        verify(reports).save(any());
     }
 
     @Test
@@ -210,7 +213,7 @@ class RiskAssessmentWiringTest {
         assertEquals(List.of(RiskReasonCode.CREDIT_LOW), report.getReasonCodes());
         assertEquals(false, ((Map<?, ?>) report.getBreakdown().get("dedup")).get("reused"));
         verify(features, times(2)).build(user, application);
-        verifyNoInteractions(reports);
+        verify(reports).save(any());
     }
 
     @Test
@@ -223,7 +226,7 @@ class RiskAssessmentWiringTest {
 
     @Test
     void unsupportedModelIsRejectedBeforeRepositoryOrCacheAccess() {
-        request.setEnabledModels(List.of("EXTERNAL"));
+        request.setEnabledModels(List.of("ABC"));
         assertThrows(BusinessException.class, () -> service.assess(request));
         verifyNoInteractions(applications, users, features, dedup, reports);
     }

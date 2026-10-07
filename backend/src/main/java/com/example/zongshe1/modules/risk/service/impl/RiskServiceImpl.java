@@ -68,12 +68,12 @@ public class RiskServiceImpl implements RiskService {
         if (request == null || request.getApplicationId() == null || request.getApplicationId() <= 0) {
             throw new BusinessException("有效的 applicationId 不能为空");
         }
-        List<String> models = request.getEnabledModels() == null
-                ? List.of("WOE") : new ArrayList<>(request.getEnabledModels());
-        if (models.stream().anyMatch(model -> !"WOE".equals(model))) {
-            throw new BusinessException("第四周仅支持 WOE 授信模型，其他模型尚未实现");
+        List<String> enabledModels;
+        try {
+            enabledModels = com.example.zongshe1.modules.risk.service.EnabledRiskModels.normalize(request.getEnabledModels());
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(exception.getMessage());
         }
-        List<String> enabledModels = models.stream().distinct().toList();
         LoanApplication application = loanApplicationRepository.findById(request.getApplicationId())
                 .orElseThrow(() -> new BusinessException("贷款申请不存在，请在申请提交后再评估"));
         if (application.getUser() == null || application.getUser().getId() == null) {
@@ -154,6 +154,53 @@ public class RiskServiceImpl implements RiskService {
         // 回填数据库生成的 reportId
         report.setReportId(entity.getId());
 
+        return report;
+    }
+
+    /**
+     * Replay persisted results, not today's assessment policy. The assessment entry point
+     * builds live features and model configuration is not versioned in the snapshot.
+     * Do not traverse the entity's application/user association or persist this DTO.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public RiskReportDTO replay(Long reportId) {
+        if (reportId == null || reportId <= 0) {
+            throw new BusinessException("INVALID_REPORT_ID", "有效的 reportId 不能为空");
+        }
+        RiskReport entity = riskReportRepository.findById(reportId)
+                .orElseThrow(() -> new BusinessException("RISK_REPORT_NOT_FOUND", "风险报告不存在：" + reportId));
+        if (entity.getDetailsJson() == null || entity.getDetailsJson().isBlank()) {
+            throw new BusinessException("RISK_REPLAY_UNAVAILABLE", "历史报告缺少持久化结果，无法回放");
+        }
+        RiskReportDTO report;
+        try {
+            report = objectMapper.readValue(entity.getDetailsJson(), RiskReportDTO.class);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException("RISK_REPLAY_UNAVAILABLE", "历史报告数据解析失败，无法回放");
+        }
+        if (report == null || report.getDecision() == null || report.getDecision().isBlank()) {
+            throw new BusinessException("RISK_REPLAY_UNAVAILABLE", "历史报告缺少决策结果，无法回放");
+        }
+        // ID is assigned after detailsJson is saved; the entity ID is authoritative.
+        report.setReportId(entity.getId());
+        Map<String, Object> breakdown = report.getBreakdown() == null
+                ? new LinkedHashMap<>() : new LinkedHashMap<>(report.getBreakdown());
+        // Older DTOs may retain model context only in snapshot.extra. Never infer
+        // missing context from today's defaults or manufacture absent AHP values.
+        if (report.getFeatureSnapshot() != null && report.getFeatureSnapshot().getExtra() != null) {
+            Map<String, Object> extra = report.getFeatureSnapshot().getExtra();
+            for (String key : List.of("enabledModels", "executedModels", "fusionMode",
+                    "modelResults", "modelScores", "normalizedModelScores", "ahp")) {
+                if (!breakdown.containsKey(key) && extra.containsKey(key)) {
+                    breakdown.put(key, extra.get(key));
+                }
+            }
+        }
+        breakdown.put("replay", true);
+        breakdown.put("replaySourceReportId", entity.getId());
+        breakdown.put("replayMode", "PERSISTED_RESULT");
+        report.setBreakdown(breakdown);
         return report;
     }
 
