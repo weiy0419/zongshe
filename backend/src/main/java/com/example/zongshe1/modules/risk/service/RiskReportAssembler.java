@@ -12,7 +12,7 @@ import java.util.Objects;
 
 /**
  * 只负责现有 DTO 的组装，不生成 ID、不查询外网、不写数据库。
- * totalScore 为 WOE 申请卡资质分（越高越好），不是旧接口的 overallRiskScore。
+ * 单模型 totalScore 为该模型资质分（越高越好）；双模型为 AHP 融合分数。
  * 输出申请卡、硬规则、外部公示和行为分；未执行模型用 null 分数及 skipped 原因说明。
  */
 @Component
@@ -45,11 +45,9 @@ public class RiskReportAssembler {
         report.setFeatureSnapshot(snapshot);
         report.setStale(snapshot.getStale());
 
-        // 兼容现有 Result.cardA()；当前结果只提供 WOE 启用标记，不推测请求策略。
-        var enabledModels = new ArrayList<String>();
-        if (Boolean.TRUE.equals(cardA.get("enabled"))) {
-            enabledModels.add("WOE");
-        }
+        Object enabledModels = result.features().getOrDefault("enabledModels", java.util.List.of());
+        Map<?, ?> modelResults = result.features().get("modelResults") instanceof Map<?, ?> models
+                ? models : Map.of();
         Map<String, String> skipped = new LinkedHashMap<>();
         if (cardA.get("skipped") instanceof String reason) {
             skipped.put("scorecard", reason);
@@ -59,7 +57,11 @@ public class RiskReportAssembler {
         if (result.ruleResults().stream().noneMatch(rule -> "ADMISSION".equals(rule.get("stage")))) {
             skipped.put("rules", "NOT_EXECUTED");
         }
-        skipped.put("external", "NOT_IMPLEMENTED");
+        if (!modelResults.containsKey("EXTERNAL")) {
+            skipped.put("external", enabledModels instanceof java.util.List<?> models && models.contains("EXTERNAL")
+                    ? "ADMISSION".equals(result.stage()) ? "ADMISSION_NOT_PASSED" : "EVALUATION_ERROR"
+                    : "DISABLED");
+        }
         skipped.put("behavior", "NOT_IMPLEMENTED");
 
         Map<String, Object> breakdown = new LinkedHashMap<>();
@@ -70,12 +72,29 @@ public class RiskReportAssembler {
         breakdown.put("scorecardDetails", cardA);
         breakdown.put("rules", skipped.containsKey("rules") ? null : result.admission());
         // 公示原始特征保留在 featureSnapshot，不能冒充外部模型分数。
-        breakdown.put("external", null);
+        breakdown.put("external", modelResults.get("EXTERNAL") instanceof Map<?, ?> external
+                ? external.get("score") : null);
+        breakdown.put("modelResults", modelResults);
+        breakdown.put("executedModels", result.features().getOrDefault("executedModels", java.util.List.of()));
         breakdown.put("behavior", null);
         breakdown.put("enabledModels", enabledModels);
         breakdown.put("skipped", skipped);
         breakdown.put("suggestLimit", null);
         breakdown.put("ruleResults", new ArrayList<>(result.ruleResults()));
+        breakdown.put("fusionMode", result.features().getOrDefault("fusionMode", "NOT_EXECUTED"));
+        Object credit = result.features().get("credit");
+        breakdown.put("credit", credit);
+        if (credit instanceof Map<?, ?> creditResult) {
+            if (creditResult.get("skipped") instanceof String reason) skipped.put("credit", reason);
+            if ("AHP".equals(breakdown.get("fusionMode")) || ("SINGLE".equals(breakdown.get("fusionMode"))
+                    && "EXTERNAL".equals(creditResult.get("modelName")))) {
+                report.setTotalScore(integer(creditResult.get("score")));
+                report.setMaxScore(integer(creditResult.get("maxScore")));
+            }
+        }
+        for (String key : java.util.List.of("modelScores", "normalizedModelScores", "ahp")) {
+            if (result.features().containsKey(key)) breakdown.put(key, result.features().get(key));
+        }
         report.setBreakdown(breakdown);
         return report;
     }

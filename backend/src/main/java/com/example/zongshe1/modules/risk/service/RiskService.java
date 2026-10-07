@@ -30,6 +30,9 @@ public interface RiskService {
     /** 第四周真实两阶段评估；执行评估并持久化新版风控报告。 */
     RiskReportDTO assess(RiskAssessmentRequest request);
 
+    /** Read-only historical replay; never rebuild features or run current models. */
+    RiskReportDTO replay(Long reportId);
+
     /**
      * 执行完整的风险评估流程
      * 

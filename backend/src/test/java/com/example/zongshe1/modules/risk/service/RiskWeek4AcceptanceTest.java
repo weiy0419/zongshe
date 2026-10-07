@@ -127,7 +127,7 @@ class RiskWeek4AcceptanceTest {
         ReflectionTestUtils.setField(scoring, "enabled", true);
         ReflectionTestUtils.setField(scoring, "passMinPoints", 40);
         List<RiskRuleEvaluator> rules = List.of(basic, scoring);
-        TwoStageRiskOrchestrator orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current);
+        TwoStageRiskOrchestrator orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current, new com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel(), new com.example.zongshe1.modules.risk.service.ahp.AhpFusionService(new com.example.zongshe1.modules.risk.service.ahp.AhpMatrixBuilder(), new com.example.zongshe1.modules.risk.service.ahp.AhpWeightCalculator()));
         RiskReportRepository reports = mock(RiskReportRepository.class);
         Map<Long, com.example.zongshe1.modules.risk.entity.RiskReport> persistedReports =
                 new HashMap<>();
@@ -331,5 +331,69 @@ class RiskWeek4AcceptanceTest {
 
         // GET 只读取已持久化报告，不能重新执行 WOE。
         verify(woe, times(1)).evaluate(any(), any());
+    }
+
+    @Test
+    void week5ExternalResultsPersistThroughGetWithProductDedupEnabled() throws Exception {
+        FeatureSnapshot snapshot = new FeatureSnapshot();
+        snapshot.put("credit_score", 720);
+        snapshot.put("user_status", 1);
+        snapshot.put("loan_amount", new BigDecimal("10000"));
+        snapshot.put("lpr1y", 3.0);
+        snapshot.put("lpr5y", 3.45);
+        snapshot.put("stale", false);
+        when(features.build(eq(user), any())).thenReturn(snapshot);
+        JsonNode assessed = assess("{\"applicationId\":101,\"productId\":7,\"enabledModels\":[\"WOE\",\"EXTERNAL\"]}");
+        assertEquals(2, assessed.at("/breakdown/modelResults").size());
+        assertEquals("AHP", assessed.at("/breakdown/fusionMode").asText());
+        assertEquals(2, assessed.at("/breakdown/ahp/matrix").size());
+        assertEquals(2, assessed.at("/breakdown/ahp/weights").size());
+        assertFalse(assessed.at("/breakdown/ahp/fallbackUsed").asBoolean());
+        assertEquals("APPROVED", assessed.path("decision").asText());
+        assertEquals(1.0 / 3, assessed.at("/breakdown/ahp/weights/EXTERNAL").asDouble(), 1e-12);
+        assertEquals(0, assessed.at("/breakdown/ahp/cr").asDouble());
+        assertEquals(assessed.at("/breakdown/ahp"), assessed.at("/featureSnapshot/extra/ahp"));
+        String body = mvc.perform(get("/api/risk/applications/101/report"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertEquals(assessed, mapper.readTree(body).path("data"));
+        verify(woe, times(1)).evaluate(any(), any());
+        verify(features, times(1)).build(any(), any());
+    }
+
+    @Test
+    void week5DishonestRejectionPersistsWithoutWoe() throws Exception {
+        FeatureSnapshot hit = new FeatureSnapshot();
+        hit.put("dishonestHit", true);
+        when(features.build(eq(user), any())).thenReturn(hit);
+        JsonNode assessed = assess("{\"applicationId\":101,\"enabledModels\":[\"WOE\",\"EXTERNAL\"]}");
+        assertEquals("REJECTED", assessed.path("decision").asText());
+        assertEquals("DISHONEST_PUBLIC", assessed.path("reasonCodes").get(0).asText());
+        assertEquals(0, assessed.at("/breakdown/executedModels").size());
+        String body = mvc.perform(get("/api/risk/applications/101/report"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertEquals(assessed, mapper.readTree(body).path("data"));
+        verify(woe, never()).evaluate(any(), any());
+    }
+
+    @Test
+    void externalSingleDecisionAndScorePersistWithoutWoeOrFusion() throws Exception {
+        FeatureSnapshot snapshot = new FeatureSnapshot();
+        snapshot.put("lpr1y", 3);
+        snapshot.put("lpr5y", 4);
+        snapshot.put("stale", false);
+        when(features.build(eq(user), any())).thenReturn(snapshot);
+        JsonNode assessed = assess("{\"applicationId\":101,\"enabledModels\":[\"EXTERNAL\"]}");
+        assertEquals("APPROVED", assessed.path("decision").asText());
+        assertEquals(65, assessed.path("totalScore").asInt());
+        assertEquals("SINGLE", assessed.at("/breakdown/fusionMode").asText());
+        assertTrue(assessed.at("/breakdown/scorecard").isNull());
+        assertEquals(65, assessed.at("/breakdown/modelResults/EXTERNAL/score").asInt());
+        assertEquals("APPROVED", assessed.at("/breakdown/credit/decision").asText());
+        assertFalse(assessed.path("breakdown").has("ahpWeights"));
+        String body = mvc.perform(get("/api/risk/applications/101/report"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertEquals(assessed, mapper.readTree(body).path("data"));
+        verify(woe, never()).evaluate(any(), any());
+        verify(features, times(1)).build(any(), any());
     }
 }

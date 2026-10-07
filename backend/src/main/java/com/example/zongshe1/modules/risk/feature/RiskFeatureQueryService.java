@@ -27,6 +27,10 @@ public class RiskFeatureQueryService {
                 );
 
 
+        return query(user);
+    }
+
+    public FeatureSnapshotDTO query(User user) {
         FeatureSnapshotDTO dto = new FeatureSnapshotDTO();
 
         dto.setUserId(user.getId());
@@ -106,7 +110,7 @@ public class RiskFeatureQueryService {
                     )
             );
 
-            dto.setStale(false);
+            dto.setStale(cacheService.getExactPayload("MACRO_LPR", "LPR_CURRENT").isEmpty());
 
         }else{
 

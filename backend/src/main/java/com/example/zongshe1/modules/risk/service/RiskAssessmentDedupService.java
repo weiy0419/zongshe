@@ -119,11 +119,7 @@ public class RiskAssessmentDedupService {
     }
 
     private static List<String> normalizeModels(List<String> enabledModels) {
-        if (enabledModels == null) return List.of("WOE");
-        if (enabledModels.stream().anyMatch(model -> !"WOE".equals(model))) {
-            throw new IllegalArgumentException("第四周仅支持 WOE 授信模型，其他模型尚未实现");
-        }
-        return enabledModels.stream().distinct().sorted().toList();
+        return EnabledRiskModels.normalize(enabledModels).stream().sorted().toList();
     }
 
     private String key(Long userId, Long productId, BigDecimal amount, List<String> enabledModels) {
@@ -143,7 +139,7 @@ public class RiskAssessmentDedupService {
                 : amount.compareTo(new BigDecimal("200000")) <= 0 ? "LE_200000" : "GT_200000";
         String models = enabledModels.isEmpty() ? "NONE" : String.join("+", enabledModels);
         // 同一 hash tag 使结果键和锁键在 Redis Cluster 中落在同一槽。
-        return "risk:assessment:" + policyVersion + ":{" + userId + ":" + productId + ":" + bucket
+        return "risk:assessment:w5-ahp-v1:" + policyVersion + ":{" + userId + ":" + productId + ":" + bucket
                 + ":" + amountBand + ":" + models + "}";
     }
 }
