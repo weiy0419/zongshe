@@ -62,6 +62,20 @@ export async function getRiskReport(applicationId) {
 }
 
 /**
+ * 回放已持久化的历史风险报告。该接口直接返回 RiskReportDTO，
+ * 不会重新采集特征或执行当前模型。
+ */
+export async function replayRiskReport(reportId) {
+  const id = requireId(reportId, '风险报告ID')
+  const report = ensureObject(
+    await request(`/api/risk/replay/${id}`, { method: 'POST' }),
+    '历史风险报告返回格式异常'
+  )
+
+  return normalizeRiskReport(report)
+}
+
+/**
  * 获取指定用户的信誉分评估。
  */
 export async function getCreditEvaluation(userId) {
