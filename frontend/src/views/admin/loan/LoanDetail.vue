@@ -79,8 +79,19 @@
 
       <section class="risk-report" aria-labelledby="risk-report-title">
         <header class="risk-report-header">
-          <h2 id="risk-report-title">风险评估报告</h2>
-          <p>以下内容来自已生成的风险报告，不会触发重新评估。</p>
+          <div>
+            <h2 id="risk-report-title">风险评估报告</h2>
+            <p>以下内容来自已生成的风险报告，不会触发重新评估。</p>
+          </div>
+          <button
+            v-if="hasReplayReportId"
+            class="secondary-btn replay-btn"
+            type="button"
+            :disabled="replayLoading"
+            @click="loadReplayReport"
+          >
+            {{ replayLoading ? '回放中...' : '历史回放' }}
+          </button>
         </header>
 
         <div v-if="riskLoading" class="content-card risk-no-report" role="status" aria-live="polite">
@@ -104,10 +115,28 @@
                   </strong>
                 </div>
                 <dl class="risk-summary-fields">
+                  <div><dt>融合模式</dt><dd>{{ displayValue(fusionMode) }}</dd></div>
+                  <div><dt>{{ totalScoreLabel }}</dt><dd>{{ displayScore(riskReport.totalScore) }} / {{ displayScore(riskReport.maxScore) }}</dd></div>
                   <div><dt>准入结果</dt><dd>{{ displayReportValue(riskBreakdown.admission) }}</dd></div>
                   <div><dt>卡版本</dt><dd>{{ displayValue(riskReport.cardVersion) }}</dd></div>
                   <div><dt>评估时间</dt><dd>{{ displayDateTime(riskReport.assessedAt) }}</dd></div>
                   <div><dt>建议额度</dt><dd>{{ formatOptionalAmount(riskBreakdown.suggestLimit) }}</dd></div>
+                  <div class="summary-field-wide">
+                    <dt>实际执行模型</dt>
+                    <dd v-if="executedModelsDisplay.kind === 'missing'">-</dd>
+                    <dd v-else-if="executedModelsDisplay.kind === 'empty'">无</dd>
+                    <dd v-else class="tag-list">
+                      <span v-for="model in executedModelsDisplay.values" :key="model" class="report-tag model-tag">{{ model }}</span>
+                    </dd>
+                  </div>
+                  <div class="summary-field-wide">
+                    <dt>当前启用模型</dt>
+                    <dd v-if="enabledModelsDisplay.kind === 'missing'">-</dd>
+                    <dd v-else-if="enabledModelsDisplay.kind === 'empty'">未启用授信模型</dd>
+                    <dd v-else class="tag-list">
+                      <span v-for="model in enabledModelsDisplay.values" :key="model" class="report-tag model-tag">{{ model }}</span>
+                    </dd>
+                  </div>
                   <div class="summary-field-wide"><dt>风险原因摘要</dt><dd>{{ displayValue(riskReport.reasonSummary) }}</dd></div>
                   <div class="summary-field-wide">
                     <dt>原因码</dt>
@@ -125,9 +154,9 @@
               <section class="content-card woe-card" aria-labelledby="woe-card-title">
                 <h3 id="woe-card-title" class="risk-card-title">WOE申请卡</h3>
                 <div class="woe-score">
-                  <span>WOE申请卡得分</span>
-                  <strong>{{ displayScore(riskReport.totalScore) }}</strong>
-                  <small>/ {{ displayScore(riskReport.maxScore) }}</small>
+                  <span>WOE原始得分</span>
+                  <strong>{{ displayScore(woeScore) }}</strong>
+                  <small>/ {{ displayScore(woeMaxScore) }}</small>
                 </div>
                 <dl class="compact-fields">
                   <div><dt>申请卡结果</dt><dd>{{ displayReportValue(riskBreakdown.scorecard) }}</dd></div>
@@ -142,6 +171,95 @@
                 <p class="risk-scale-note">该分数是申请卡资质分，分数越高代表资质越好。</p>
               </section>
             </div>
+
+            <section class="content-card model-score-card" aria-labelledby="model-score-title">
+              <h3 id="model-score-title" class="risk-card-title">模型评分明细</h3>
+              <div v-if="modelScoreRows.length" class="model-score-grid">
+                <article v-for="model in modelScoreRows" :key="model.name" class="model-score-item">
+                  <strong>{{ model.name }}</strong>
+                  <dl>
+                    <div><dt>原始模型分</dt><dd>{{ displayScore(model.score) }}<span v-if="hasValue(model.maxScore)"> / {{ displayScore(model.maxScore) }}</span></dd></div>
+                    <div><dt>归一化模型分</dt><dd>{{ formatDecimal(model.normalizedScore, 2) }}</dd></div>
+                  </dl>
+                </article>
+              </div>
+              <p v-else class="risk-inline-empty">当前报告未返回模型评分明细。</p>
+            </section>
+
+            <section v-if="ahpDetails" class="content-card ahp-card" aria-labelledby="ahp-title">
+              <div class="ahp-heading">
+                <div>
+                  <h3 id="ahp-title" class="risk-card-title">AHP 动态融合</h3>
+                  <p>展示本次评估实际使用的模型权重及一致性结果。</p>
+                </div>
+                <span class="fusion-badge">AHP</span>
+              </div>
+
+              <div class="ahp-summary-grid">
+                <div><span>模型顺序</span><strong>{{ ahpModelOrder.length ? ahpModelOrder.join(' → ') : '-' }}</strong></div>
+                <div><span>一致性比率 CR</span><strong>{{ formatDecimal(ahpDetails.cr, 4) }}</strong></div>
+                <div><span>一致性检查</span><strong :class="ahpDetails.consistent === false ? 'status-warning' : 'status-success'">{{ consistencyText(ahpDetails.consistent) }}</strong></div>
+                <div><span>权重回退</span><strong :class="ahpDetails.fallbackUsed === true ? 'status-warning' : 'status-success'">{{ fallbackText(ahpDetails.fallbackUsed) }}</strong></div>
+              </div>
+
+              <div class="ahp-content-grid">
+                <div>
+                  <h4>模型权重</h4>
+                  <div v-if="ahpWeightRows.length" class="weight-list">
+                    <div v-for="weight in ahpWeightRows" :key="weight.name" class="weight-row">
+                      <span>{{ weight.name }}</span>
+                      <div class="weight-track" aria-hidden="true"><i :style="{ width: weight.percentWidth }"></i></div>
+                      <strong>{{ formatWeight(weight.value) }}</strong>
+                    </div>
+                  </div>
+                  <p v-else class="risk-inline-empty">未返回权重数据。</p>
+                </div>
+
+                <div>
+                  <h4>权重来源</h4>
+                  <dl v-if="ahpSourceRows.length" class="source-fields">
+                    <div v-for="item in ahpSourceRows" :key="item.key">
+                      <dt>{{ item.label }}</dt><dd>{{ item.value }}</dd>
+                    </div>
+                  </dl>
+                  <p v-else class="risk-inline-empty">未返回权重来源。</p>
+                </div>
+              </div>
+
+              <div v-if="ahpMatrixRows.length" class="ahp-matrix-wrap">
+                <h4>判断矩阵</h4>
+                <div class="table-scroll">
+                  <table class="ahp-matrix-table">
+                    <thead><tr><th>模型</th><th v-for="model in ahpModelOrder" :key="model">{{ model }}</th></tr></thead>
+                    <tbody>
+                      <tr v-for="row in ahpMatrixRows" :key="row.name">
+                        <th>{{ row.name }}</th><td v-for="(value, index) in row.values" :key="`${row.name}-${index}`">{{ formatDecimal(value, 4) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p class="ahp-explanation"><strong>计算说明：</strong>{{ displayValue(ahpDetails.explanation) }}</p>
+            </section>
+
+            <section class="content-card feature-snapshot-card" aria-labelledby="feature-snapshot-title">
+              <div class="snapshot-heading">
+                <div>
+                  <h3 id="feature-snapshot-title" class="risk-card-title">评估特征快照</h3>
+                  <p>以下为本次风险评估持久化时使用的只读特征。</p>
+                </div>
+                <div class="freshness-list">
+                  <span :class="['freshness-badge', reportFreshness.className]">报告：{{ reportFreshness.text }}</span>
+                  <span :class="['freshness-badge', snapshotFreshness.className]">快照：{{ snapshotFreshness.text }}</span>
+                </div>
+              </div>
+              <dl v-if="featureSnapshot" class="snapshot-grid">
+                <div v-for="field in snapshotFields" :key="field.key">
+                  <dt>{{ field.label }}</dt><dd>{{ field.value }}</dd>
+                </div>
+              </dl>
+              <p v-else class="risk-inline-empty">当前报告未返回特征快照。</p>
+            </section>
 
             <div class="risk-model-grid">
               <section class="content-card model-status-card" aria-labelledby="model-status-title">
@@ -191,6 +309,27 @@
               <strong>{{ dedupDisplay.title }}</strong>
               <span>{{ dedupDisplay.detail }}</span>
             </aside>
+
+            <section v-if="hasReplayReportId" class="replay-section" aria-labelledby="replay-title">
+              <header>
+                <div>
+                  <h3 id="replay-title">历史报告回放</h3>
+                  <p>历史回放基于已持久化报告，不重新获取当前特征或重新执行模型。</p>
+                </div>
+              </header>
+              <div v-if="replayLoading" class="replay-state" role="status" aria-live="polite">正在读取历史报告...</div>
+              <div v-else-if="replayError" class="replay-state replay-error" role="alert">{{ replayError }}</div>
+              <dl v-else-if="replayResult" class="replay-grid">
+                <div><dt>来源报告 ID</dt><dd>{{ displayValue(replayBreakdown.replaySourceReportId ?? replayResult.reportId) }}</dd></div>
+                <div><dt>回放模式</dt><dd>{{ displayValue(replayBreakdown.replayMode) }}</dd></div>
+                <div><dt>最终决策</dt><dd>{{ replayDecision.text }}</dd></div>
+                <div><dt>最终总分</dt><dd>{{ displayScore(replayResult.totalScore) }} / {{ displayScore(replayResult.maxScore) }}</dd></div>
+                <div><dt>原评估时间</dt><dd>{{ displayDateTime(replayResult.assessedAt) }}</dd></div>
+                <div><dt>融合模式</dt><dd>{{ displayValue(replayBreakdown.fusionMode) }}</dd></div>
+                <div class="replay-field-wide"><dt>启用模型</dt><dd>{{ replayEnabledModels }}</dd></div>
+              </dl>
+              <p v-else class="replay-state">点击“历史回放”读取当前 reportId 对应的持久化结果。</p>
+            </section>
           </template>
 
           <template v-else>
@@ -311,7 +450,7 @@ import {
   normalizeLoanApplicationStatus,
   rejectLoanApplication
 } from '../../../api/loan'
-import { getRiskReport } from '../../../api/risk'
+import { getRiskReport, replayRiskReport } from '../../../api/risk'
 
 const route = useRoute()
 const application = ref(null)
@@ -320,6 +459,9 @@ const errorMessage = ref('')
 const riskReport = ref(null)
 const riskLoading = ref(false)
 const riskErrorMessage = ref('')
+const replayResult = ref(null)
+const replayLoading = ref(false)
+const replayError = ref('')
 const pendingAction = ref('')
 const remark = ref('')
 const actionSubmitting = ref(false)
@@ -356,9 +498,115 @@ const hasNewRiskReport = computed(() => {
 const decisionDisplay = computed(() => decisionText(riskReport.value?.decision))
 const reasonCodesDisplay = computed(() => listFieldDisplay(riskReport.value, 'reasonCodes'))
 const enabledModelsDisplay = computed(() => listFieldDisplay(riskBreakdown.value, 'enabledModels'))
+const executedModelsDisplay = computed(() => listFieldDisplay(riskBreakdown.value, 'executedModels'))
+const fusionMode = computed(() => hasValue(riskBreakdown.value.fusionMode)
+  ? String(riskBreakdown.value.fusionMode).toLocaleUpperCase()
+  : '')
+const totalScoreLabel = computed(() => fusionMode.value === 'AHP' ? '最终融合得分' : '最终模型得分')
 const scorecardDetails = computed(() => isRecord(riskBreakdown.value.scorecardDetails)
   ? riskBreakdown.value.scorecardDetails
   : null)
+const modelResults = computed(() => isRecord(riskBreakdown.value.modelResults) ? riskBreakdown.value.modelResults : {})
+const woeModelResult = computed(() => isRecord(modelResults.value.WOE) ? modelResults.value.WOE : null)
+const woeScore = computed(() => firstValue(scorecardDetails.value, 'score') ?? firstValue(woeModelResult.value, 'score'))
+const woeMaxScore = computed(() => firstValue(scorecardDetails.value, 'maxScore') ?? firstValue(woeModelResult.value, 'maxScore'))
+const modelScoreRows = computed(() => {
+  const scores = isRecord(riskBreakdown.value.modelScores) ? riskBreakdown.value.modelScores : {}
+  const normalizedScores = isRecord(riskBreakdown.value.normalizedModelScores)
+    ? riskBreakdown.value.normalizedModelScores
+    : {}
+  const names = [...new Set([...Object.keys(scores), ...Object.keys(normalizedScores), ...Object.keys(modelResults.value)])]
+
+  return names.map(name => {
+    const raw = hasOwn(scores, name) ? scores[name] : modelResults.value[name]
+    return {
+      name,
+      score: isRecord(raw) ? raw.score : raw,
+      maxScore: isRecord(raw) ? raw.maxScore : undefined,
+      normalizedScore: normalizedScores[name]
+    }
+  })
+})
+const ahpDetails = computed(() => isRecord(riskBreakdown.value.ahp) ? riskBreakdown.value.ahp : null)
+const ahpModelOrder = computed(() => Array.isArray(ahpDetails.value?.modelOrder)
+  ? ahpDetails.value.modelOrder.filter(hasValue).map(String)
+  : [])
+const ahpWeightRows = computed(() => {
+  const weights = isRecord(ahpDetails.value?.weights) ? ahpDetails.value.weights : {}
+  const orderedNames = ahpModelOrder.value.length ? ahpModelOrder.value : Object.keys(weights)
+  return orderedNames
+    .filter(name => hasValue(weights[name]))
+    .map(name => {
+      const value = Number(weights[name])
+      return {
+        name,
+        value: Number.isFinite(value) ? value : undefined,
+        percentWidth: Number.isFinite(value) ? `${Math.max(0, Math.min(100, value * 100))}%` : '0%'
+      }
+    })
+})
+const ahpSourceRows = computed(() => {
+  if (!isRecord(ahpDetails.value?.source)) return []
+  const labels = {
+    lpr1y: '一年期 LPR',
+    lpr5y: '五年期 LPR',
+    stale: '来源数据新鲜度',
+    credit_score: '信用分',
+    credit_overdue_count: '逾期次数',
+    parameters: '计算参数',
+    importance: '模型重要度',
+    formula: '权重公式',
+    fallbackReason: '回退原因',
+    version: '来源版本'
+  }
+  return Object.entries(ahpDetails.value.source).map(([key, value]) => ({
+    key,
+    label: labels[key] || key,
+    value: key === 'stale' ? freshnessStatus(value).text : formatStructuredValue(value)
+  }))
+})
+const ahpMatrixRows = computed(() => {
+  if (!Array.isArray(ahpDetails.value?.matrix) || !ahpModelOrder.value.length) return []
+  return ahpDetails.value.matrix
+    .filter(Array.isArray)
+    .slice(0, ahpModelOrder.value.length)
+    .map((values, index) => ({
+      name: ahpModelOrder.value[index] || `模型 ${index + 1}`,
+      values: values.slice(0, ahpModelOrder.value.length)
+    }))
+})
+const featureSnapshot = computed(() => isRecord(riskReport.value?.featureSnapshot)
+  ? riskReport.value.featureSnapshot
+  : null)
+const reportFreshness = computed(() => freshnessStatus(riskReport.value?.stale))
+const snapshotFreshness = computed(() => freshnessStatus(featureSnapshot.value?.stale))
+const snapshotFields = computed(() => {
+  const snapshot = featureSnapshot.value || {}
+  return [
+    { key: 'creditScore', label: '信用分', value: displayValue(snapshot.creditScore) },
+    { key: 'overdueCount', label: '逾期次数', value: displayValue(snapshot.overdueCount) },
+    { key: 'monthlyIncome', label: '月收入', value: formatOptionalCurrency(snapshot.monthlyIncome) },
+    { key: 'loanAmount', label: '贷款金额', value: formatOptionalCurrency(snapshot.loanAmount) },
+    { key: 'loanTerm', label: '贷款期限', value: hasValue(snapshot.loanTerm) ? `${snapshot.loanTerm} 个月` : '-' },
+    { key: 'dishonestHit', label: '失信命中', value: booleanResultText(snapshot.dishonestHit, '已命中', '未命中') },
+    { key: 'dishonestName', label: '失信主体', value: displayValueOrDash(snapshot.dishonestName) },
+    { key: 'courtName', label: '执行法院', value: displayValueOrDash(snapshot.courtName) },
+    { key: 'publishDate', label: '公示时间', value: displayDateTimeOrDash(snapshot.publishDate) },
+    { key: 'lpr1y', label: '一年期 LPR', value: displayValueOrDash(snapshot.lpr1y) },
+    { key: 'lpr5y', label: '五年期 LPR', value: displayValueOrDash(snapshot.lpr5y) },
+    { key: 'lprPublishDate', label: 'LPR 发布时间', value: displayDateTimeOrDash(snapshot.lprPublishDate) },
+    { key: 'stale', label: '快照新鲜度', value: snapshotFreshness.value.text }
+  ]
+})
+const hasReplayReportId = computed(() => hasNewRiskReport.value
+  && /^\d+$/.test(String(riskReport.value?.reportId ?? ''))
+  && Number(riskReport.value.reportId) > 0)
+const replayBreakdown = computed(() => isRecord(replayResult.value?.breakdown) ? replayResult.value.breakdown : {})
+const replayDecision = computed(() => decisionText(replayResult.value?.decision))
+const replayEnabledModels = computed(() => {
+  const models = replayBreakdown.value.enabledModels
+  return Array.isArray(models) && models.length ? models.filter(hasValue).map(String).join('、') : '-'
+})
 const ruleResults = computed(() => Array.isArray(riskBreakdown.value.ruleResults)
   ? riskBreakdown.value.ruleResults.filter(isRecord)
   : [])
@@ -432,6 +680,68 @@ function displayReportValue(value) {
   if (Array.isArray(value)) return value.length ? value.map(String).join('、') : '无'
   if (isRecord(value)) return '已返回'
   return String(value)
+}
+
+function displayValueOrDash(value) {
+  return hasValue(value) ? String(value) : '-'
+}
+
+function displayDateTimeOrDash(value) {
+  return hasValue(value) ? displayDateTime(value) : '-'
+}
+
+function formatOptionalCurrency(value) {
+  return hasValue(value) ? formatLoanAmount(value) : '-'
+}
+
+function formatDecimal(value, digits = 2) {
+  const number = Number(value)
+  return hasValue(value) && Number.isFinite(number) ? number.toFixed(digits) : '-'
+}
+
+function formatWeight(value) {
+  const number = Number(value)
+  return hasValue(value) && Number.isFinite(number) ? `${(number * 100).toFixed(2)}%` : '-'
+}
+
+function formatStructuredValue(value, depth = 0) {
+  if (!hasValue(value)) return '-'
+  if (typeof value === 'boolean') return value ? '是' : '否'
+  if (Array.isArray(value)) return value.length
+    ? value.map(item => formatStructuredValue(item, depth + 1)).join('、')
+    : '无'
+  if (isRecord(value)) {
+    if (depth >= 2) return '已返回'
+    const entries = Object.entries(value)
+    return entries.length
+      ? entries.map(([key, item]) => `${key}: ${formatStructuredValue(item, depth + 1)}`).join('；')
+      : '无'
+  }
+  return String(value)
+}
+
+function consistencyText(value) {
+  if (value === true) return '一致性通过'
+  if (value === false) return '一致性未通过'
+  return '-'
+}
+
+function fallbackText(value) {
+  if (value === true) return '已使用回退权重'
+  if (value === false) return '未使用回退权重'
+  return '-'
+}
+
+function booleanResultText(value, truthyText, falsyText) {
+  if (value === true) return truthyText
+  if (value === false) return falsyText
+  return '-'
+}
+
+function freshnessStatus(value) {
+  if (value === true) return { text: '数据可能过期', className: 'stale' }
+  if (value === false) return { text: '数据正常', className: 'fresh' }
+  return { text: '未提供', className: 'unknown' }
 }
 
 function decisionText(value) {
@@ -595,6 +905,8 @@ async function loadApplication() {
 async function loadRiskReport() {
   riskReport.value = null
   riskErrorMessage.value = ''
+  replayResult.value = null
+  replayError.value = ''
   if (!isValidApplicationId.value) {
     riskLoading.value = false
     return
@@ -607,6 +919,21 @@ async function loadRiskReport() {
     riskErrorMessage.value = error?.message || '风险报告加载失败，请稍后重试'
   } finally {
     riskLoading.value = false
+  }
+}
+
+async function loadReplayReport() {
+  if (!hasReplayReportId.value || replayLoading.value) return
+
+  replayResult.value = null
+  replayError.value = ''
+  replayLoading.value = true
+  try {
+    replayResult.value = await replayRiskReport(riskReport.value.reportId)
+  } catch (error) {
+    replayError.value = error?.message || '历史风险报告回放失败，请稍后重试'
+  } finally {
+    replayLoading.value = false
   }
 }
 
