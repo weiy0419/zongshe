@@ -111,3 +111,14 @@ INSERT INTO `system_settings` (`setting_key`, `setting_value`, `setting_type`, `
                                                                                                   ('smtp_server', 'smtp.example.com', 'string', 'SMTP服务器'),
                                                                                                   ('smtp_port', '587', 'int', 'SMTP端口'),
                                                                                                   ('email_from', 'noreply@example.com', 'string', '发件人邮箱');
+
+-- 平台审计（薛雨宸，第四周：登录 / 创建申请）
+CREATE TABLE IF NOT EXISTS `ops_audit_log` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `occurred_at` DATETIME NOT NULL COMMENT '操作时间',
+    `user_id` VARCHAR(64) NULL COMMENT '用户标识：用户 userId，管理员用户名；失败时回落登录名或手机号',
+    `path` VARCHAR(255) NOT NULL COMMENT '请求路径',
+    `result_code` INT NOT NULL COMMENT 'HTTP 结果码',
+    PRIMARY KEY (`id`),
+    KEY `idx_ops_audit_occurred` (`occurred_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='关键操作审计';
