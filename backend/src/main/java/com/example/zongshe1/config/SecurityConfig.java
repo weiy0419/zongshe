@@ -55,6 +55,8 @@ public class SecurityConfig {
                                 "/api/users/send-otp",
                                 "/api/users/register"
                         ).permitAll()
+                        //限制管理端接口必须具备 ADMIN 或 APPROVER 角色
+                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "APPROVER")
                         // API端点需要认证
                         .requestMatchers("/api/**").authenticated()
                         // 其他所有请求需要认证
