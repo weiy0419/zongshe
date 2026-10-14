@@ -17,11 +17,13 @@ import com.example.zongshe1.modules.risk.service.RiskRuleEvaluator;
 import com.example.zongshe1.modules.risk.service.RiskService;
 import com.example.zongshe1.modules.risk.service.RiskAssessmentDedupService;
 import com.example.zongshe1.modules.risk.service.RiskReportAssembler;
+import com.example.zongshe1.modules.risk.service.RiskDecisionEventService;
 import com.example.zongshe1.modules.risk.service.TwoStageRiskOrchestrator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +63,7 @@ public class RiskServiceImpl implements RiskService {
     private final TwoStageRiskOrchestrator twoStageRiskOrchestrator;
     private final RiskAssessmentDedupService assessmentDedupService;
     private final RiskReportAssembler reportAssembler;
+    private final RiskDecisionEventService decisionEvents;
 
     @Override
     @Transactional
@@ -134,8 +137,9 @@ public class RiskServiceImpl implements RiskService {
         report.getBreakdown().put("dedup", dedup);
 
         // 同一申请维护一份当前风控报告
-        RiskReport entity = riskReportRepository.findByLoanApplication(application)
+        RiskReport entity = riskReportRepository.findForAssessment(application.getId())
                 .orElseGet(RiskReport::new);
+        String previousDetailsJson = entity.getDetailsJson();
 
         entity.setLoanApplication(application);
 
@@ -146,15 +150,37 @@ public class RiskServiceImpl implements RiskService {
         entity.setScoringCardMax(report.getMaxScore());
         entity.setCardVersion(report.getCardVersion());
 
-        // 保存完整新版报告
-        entity.setDetailsJson(toJson(report));
+        try {
+            // IDENTITY 新报告先取得真实 ID；此时尚未提交，后续失败必须整笔回滚。
+            boolean newReport = entity.getId() == null;
+            if (newReport) {
+                entity = riskReportRepository.save(entity);
+            }
+            report.setReportId(entity.getId());
+            entity.setDetailsJson(serializeAssessmentReport(report));
+            if (!newReport) {
+                riskReportRepository.save(entity);
+            }
+            // 新实体由当前事务管理，脏检查写入完整 JSON；同时在返回前暴露约束冲突。
+            riskReportRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            log.warn("风控报告保存违反数据约束：applicationId={}", application.getId(), exception);
+            // 不在失败事务中继续查询或伪造成功；数据库唯一约束仍是最终保护。
+            throw new BusinessException("RISK_REPORT_SAVE_CONFLICT",
+                    "风控报告保存违反数据约束；若同一申请正在并发评估，请稍后重试");
+        }
 
-        entity = riskReportRepository.save(entity);
-
-        // 回填数据库生成的 reportId
-        report.setReportId(entity.getId());
-
+        decisionEvents.afterReportPersisted(previousDetailsJson, report);
         return report;
+    }
+
+    private String serializeAssessmentReport(RiskReportDTO report) {
+        try {
+            return objectMapper.writeValueAsString(report);
+        } catch (JsonProcessingException exception) {
+            log.error("风控报告序列化失败：applicationId={}", report.getApplicationId(), exception);
+            throw new BusinessException("RISK_REPORT_SERIALIZATION_FAILED", "风控报告序列化失败，评估未保存");
+        }
     }
 
     /**
@@ -182,7 +208,7 @@ public class RiskServiceImpl implements RiskService {
         if (report == null || report.getDecision() == null || report.getDecision().isBlank()) {
             throw new BusinessException("RISK_REPLAY_UNAVAILABLE", "历史报告缺少决策结果，无法回放");
         }
-        // ID is assigned after detailsJson is saved; the entity ID is authoritative.
+        // Older reports may lack a JSON reportId; the entity ID is authoritative.
         report.setReportId(entity.getId());
         Map<String, Object> breakdown = report.getBreakdown() == null
                 ? new LinkedHashMap<>() : new LinkedHashMap<>(report.getBreakdown());

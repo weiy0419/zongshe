@@ -71,7 +71,7 @@ class RiskAssessmentWiringTest {
         orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current, new com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel(), new com.example.zongshe1.modules.risk.service.ahp.AhpFusionService(new com.example.zongshe1.modules.risk.service.ahp.AhpMatrixBuilder(), new com.example.zongshe1.modules.risk.service.ahp.AhpWeightCalculator()));
         service = new RiskServiceImpl(rules, applications, users, reports, features, current,
                 new ObjectMapper().findAndRegisterModules(), products, orchestrator, dedup,
-                new RiskReportAssembler());
+                new RiskReportAssembler(), mock(RiskDecisionEventService.class));
         user = new User();
         user.setId(2L); // 偶数 ID 不再触发原 Mock 的失信拒绝。
         user.setCreditScore(720);
@@ -83,7 +83,11 @@ class RiskAssessmentWiringTest {
         application.setLoanTerm(12);
         request = new RiskAssessmentRequest();
         request.setApplicationId(101L);
-        lenient().when(reports.save(any())).thenAnswer(i -> i.getArgument(0));
+        lenient().when(reports.save(any())).thenAnswer(i -> {
+            com.example.zongshe1.modules.risk.entity.RiskReport report = i.getArgument(0);
+            if (report.getId() == null) report.setId(77L);
+            return report;
+        });
     }
 
     private void givenApplication() {
@@ -190,7 +194,7 @@ class RiskAssessmentWiringTest {
                 .thenReturn(new RiskAssessmentDedupService.Lookup(cached, true));
         RiskReportDTO report = service.assess(request);
         assertEquals(102L, report.getApplicationId());
-        assertNull(report.getReportId());
+        assertEquals(77L, report.getReportId());
         assertEquals(cached.assessedAt(), report.getAssessedAt());
         assertEquals(new BigDecimal("10000"), report.getFeatureSnapshot().getLoanAmount());
         assertEquals(true, ((Map<?, ?>) report.getBreakdown().get("dedup")).get("reused"));

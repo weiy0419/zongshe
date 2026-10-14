@@ -81,7 +81,7 @@ class RiskReplayTest {
         var rules = List.<RiskRuleEvaluator>of(admission, woe);
         orchestrator = spy(new TwoStageRiskOrchestrator(rules, woe, features, current, external, ahp));
         service = new RiskServiceImpl(rules, applications, users, reports, features, current,
-                mapper, products, orchestrator, dedup, new RiskReportAssembler());
+                mapper, products, orchestrator, dedup, new RiskReportAssembler(), mock(RiskDecisionEventService.class));
         mvc = MockMvcBuilders.standaloneSetup(new RiskController(service, query))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         when(applications.findById(101L)).thenReturn(Optional.of(application));
