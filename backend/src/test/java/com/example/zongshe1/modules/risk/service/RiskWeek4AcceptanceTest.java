@@ -132,10 +132,10 @@ class RiskWeek4AcceptanceTest {
         Map<Long, com.example.zongshe1.modules.risk.entity.RiskReport> persistedReports =
                 new HashMap<>();
 
-        when(reports.findByLoanApplication(any(LoanApplication.class)))
+        when(reports.findForAssessment(anyLong()))
                 .thenAnswer(invocation -> {
-                    LoanApplication application = invocation.getArgument(0);
-                    return Optional.ofNullable(persistedReports.get(application.getId()));
+                    Long applicationId = invocation.getArgument(0);
+                    return Optional.ofNullable(persistedReports.get(applicationId));
                 });
 
         when(reports.findByLoanApplication_Id(anyLong()))
@@ -165,7 +165,7 @@ class RiskWeek4AcceptanceTest {
                 products,
                 orchestrator,
                 dedup,
-                new RiskReportAssembler()
+                new RiskReportAssembler(), mock(RiskDecisionEventService.class)
         );
         mvc = MockMvcBuilders.standaloneSetup(new RiskController(service, mock(RiskFeatureQueryService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
