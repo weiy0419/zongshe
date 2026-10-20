@@ -38,7 +38,7 @@ class RiskWeek5Test {
         snapshot.put("lpr5y", new BigDecimal("3.5"));
         snapshot.put("stale", false);
         when(features.build(user, application)).thenReturn(snapshot);
-        orchestrator = new TwoStageRiskOrchestrator(List.of(admission, woe), woe, features, current, external, ahp);
+        orchestrator = new TwoStageRiskOrchestrator(List.of(admission, woe), woe, features, current, external, ahp, mock(com.example.zongshe1.modules.risk.feature.BehaviorFeatureQueryService.class), new com.example.zongshe1.modules.risk.service.scoring.BehaviorScoreEngine());
     }
 
     @AfterEach void cleanup() { current.clear(); }

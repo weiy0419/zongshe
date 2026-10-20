@@ -58,6 +58,8 @@ class RiskWeek6IdempotencyTest {
 
     @BeforeEach
     void setup() {
+        when(orchestrator.revalidate(any(), any(), anyList(), any()))
+                .thenAnswer(i -> i.getArgument(3));
         user.setId(2L);
         user.setCreditScore(720);
         user.setUserStatus(1);
@@ -187,7 +189,8 @@ class RiskWeek6IdempotencyTest {
         assertEquals(101L, report.getApplicationId());
         assertEquals(77L, report.getReportId());
         assertEquals(mapper.readTree(mapper.writeValueAsString(report)), mapper.readTree(flushedJson.get()));
-        verifyNoInteractions(orchestrator, features);
+        verify(orchestrator).revalidate(eq(user), eq(application), eq(List.of("WOE")), any());
+        verifyNoInteractions(features);
         verify(reports).save(any());
         verify(reports).flush();
         verify(transactions).commit(any());

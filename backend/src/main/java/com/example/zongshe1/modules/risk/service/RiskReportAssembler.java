@@ -62,7 +62,12 @@ public class RiskReportAssembler {
                     ? "ADMISSION".equals(result.stage()) ? "ADMISSION_NOT_PASSED" : "EVALUATION_ERROR"
                     : "DISABLED");
         }
-        skipped.put("behavior", "NOT_IMPLEMENTED");
+        Map<?, ?> behavior = result.features().get("behaviorDetails") instanceof Map<?, ?> state ? state : Map.of();
+        if (!"COMPLETED".equals(behavior.get("status"))) {
+            skipped.put("behavior", behavior.get("status") instanceof String status ? status
+                    : enabledModels instanceof java.util.List<?> models && models.contains("BEHAVIOR")
+                    ? "NOT_EXECUTED" : "DISABLED");
+        }
 
         Map<String, Object> breakdown = new LinkedHashMap<>();
         breakdown.put("stage", result.stage());
@@ -76,7 +81,8 @@ public class RiskReportAssembler {
                 ? external.get("score") : null);
         breakdown.put("modelResults", modelResults);
         breakdown.put("executedModels", result.features().getOrDefault("executedModels", java.util.List.of()));
-        breakdown.put("behavior", null);
+        breakdown.put("behavior", behavior.get("score"));
+        breakdown.put("behaviorDetails", behavior);
         breakdown.put("enabledModels", enabledModels);
         breakdown.put("skipped", skipped);
         breakdown.put("suggestLimit", null);
@@ -86,13 +92,17 @@ public class RiskReportAssembler {
         breakdown.put("credit", credit);
         if (credit instanceof Map<?, ?> creditResult) {
             if (creditResult.get("skipped") instanceof String reason) skipped.put("credit", reason);
-            if ("AHP".equals(breakdown.get("fusionMode")) || ("SINGLE".equals(breakdown.get("fusionMode"))
-                    && "EXTERNAL".equals(creditResult.get("modelName")))) {
+            if ("AHP".equals(breakdown.get("fusionMode")) || "SINGLE".equals(breakdown.get("fusionMode"))) {
                 report.setTotalScore(integer(creditResult.get("score")));
                 report.setMaxScore(integer(creditResult.get("maxScore")));
+            } else if (!"COMPLETED".equals(creditResult.get("status"))) {
+                // Individual model scores stay in breakdown; an incomplete decision has no final score.
+                report.setTotalScore(null);
+                report.setMaxScore(null);
             }
         }
-        for (String key : java.util.List.of("modelScores", "normalizedModelScores", "ahp")) {
+        for (String key : java.util.List.of("modelScores", "normalizedModelScores", "ahp",
+                "scorableModels", "fusedModels", "ahpExecuted")) {
             if (result.features().containsKey(key)) breakdown.put(key, result.features().get(key));
         }
         report.setBreakdown(breakdown);

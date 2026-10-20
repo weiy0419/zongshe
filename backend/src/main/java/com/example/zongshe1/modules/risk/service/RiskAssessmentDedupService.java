@@ -139,7 +139,7 @@ public class RiskAssessmentDedupService {
                 : amount.compareTo(new BigDecimal("200000")) <= 0 ? "LE_200000" : "GT_200000";
         String models = enabledModels.isEmpty() ? "NONE" : String.join("+", enabledModels);
         // 同一 hash tag 使结果键和锁键在 Redis Cluster 中落在同一槽。
-        return "risk:assessment:w5-ahp-v1:" + policyVersion + ":{" + userId + ":" + productId + ":" + bucket
+        return "risk:assessment:w7-behavior-v2:" + policyVersion + ":{" + userId + ":" + productId + ":" + bucket
                 + ":" + amountBand + ":" + models + "}";
     }
 }

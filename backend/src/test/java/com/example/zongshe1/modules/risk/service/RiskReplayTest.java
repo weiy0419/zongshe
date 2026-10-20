@@ -50,6 +50,9 @@ class RiskReplayTest {
     private final FeatureContextService features = spy(new FeatureContextService(sources, List.of(), query));
     private final CurrentRiskFeatures current = spy(new CurrentRiskFeatures());
     private final RiskAssessmentDedupService dedup = mock(RiskAssessmentDedupService.class);
+    private final BehaviorFeatureQueryService behaviorQuery = mock(BehaviorFeatureQueryService.class);
+    private final com.example.zongshe1.modules.risk.service.scoring.BehaviorScoreEngine behaviorEngine =
+            spy(new com.example.zongshe1.modules.risk.service.scoring.BehaviorScoreEngine());
     private final ExternalPublicModel external = spy(new ExternalPublicModel());
     private final AhpFusionService ahp = spy(new AhpFusionService(new AhpMatrixBuilder(), new AhpWeightCalculator()));
     private final Map<Long, RiskReport> stored = new HashMap<>();
@@ -66,6 +69,10 @@ class RiskReplayTest {
     @BeforeEach
     void setup() {
         user.setId(2L);
+        user.setUserId("BUSINESS-2");
+        when(behaviorQuery.query("BUSINESS-2")).thenReturn(new BehaviorFeatureSnapshot("BUSINESS-2",
+                java.time.LocalDateTime.of(2026, 1, 1, 0, 0), BehaviorFeatureSnapshot.DataQuality.NO_HISTORY,
+                0, 0, null, null, BehaviorFeatureSnapshot.LatestPayment.NONE, List.of("NO_PLANS_OR_PAYMENTS")));
         user.setUserName("历史用户");
         user.setCreditScore(720);
         user.setUserStatus(1);
@@ -79,7 +86,7 @@ class RiskReplayTest {
         ReflectionTestUtils.setField(woe, "enabled", true);
         ReflectionTestUtils.setField(woe, "passMinPoints", 40);
         var rules = List.<RiskRuleEvaluator>of(admission, woe);
-        orchestrator = spy(new TwoStageRiskOrchestrator(rules, woe, features, current, external, ahp));
+        orchestrator = spy(new TwoStageRiskOrchestrator(rules, woe, features, current, external, ahp, behaviorQuery, behaviorEngine));
         service = new RiskServiceImpl(rules, applications, users, reports, features, current,
                 mapper, products, orchestrator, dedup, new RiskReportAssembler(), mock(RiskDecisionEventService.class));
         mvc = MockMvcBuilders.standaloneSetup(new RiskController(service, query))
@@ -114,7 +121,7 @@ class RiskReplayTest {
         assertEquals(77L, original.getReportId());
         assertNotNull(stored.get(77L).getDetailsJson());
         clearInvocations(reports, applications, users, products, cache, crawler, sources,
-                query, features, current, dedup, admission, woe, external, ahp, orchestrator);
+                query, features, current, dedup, admission, woe, external, ahp, orchestrator, behaviorQuery, behaviorEngine);
         return original;
     }
 
@@ -127,7 +134,7 @@ class RiskReplayTest {
         verify(cache, never()).save(any(), any(), any(), any(), any(), anyInt());
         verify(cache, never()).saveByLookupKey(any(), any(), any(), any(), anyInt());
         verifyNoInteractions(query, features, sources, crawler, cache, applications, users,
-                products, current, dedup, admission, woe, external, ahp, orchestrator);
+                products, current, dedup, admission, woe, external, ahp, orchestrator, behaviorQuery, behaviorEngine);
         verify(reports, never()).save(any());
         verify(reports, never()).saveAndFlush(any());
         verify(reports, never()).saveAll(any());
@@ -192,7 +199,7 @@ class RiskReplayTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"WOE", "EXTERNAL", "EMPTY", "ADMISSION"})
+    @ValueSource(strings = {"WOE", "EXTERNAL", "BEHAVIOR", "EMPTY", "ADMISSION"})
     void singleSkippedAndRejectedReportsKeepTheirHistoricalResults(String mode) throws Exception {
         liveDishonest = mode.equals("ADMISSION");
         var models = mode.equals("EMPTY") ? List.<String>of()
@@ -282,5 +289,27 @@ class RiskReplayTest {
         assertEquals(false, second.getFeatureSnapshot().getDishonestHit());
         assertEquals(before, stored.get(77L).getDetailsJson());
         assertNoLiveAccessOrWrites();
+    }
+
+    @Test
+    void behaviorAndThreeModelEvidenceReplaysWithoutAnyCurrentRepaymentQuery() throws Exception {
+        RiskReportDTO original = persist(List.of("WOE", "EXTERNAL", "BEHAVIOR"));
+        var json = mapper.readTree(stored.get(77L).getDetailsJson());
+        assertEquals(mapper.readTree("""
+                {"businessUserId":"BUSINESS-2","observedAt":"2026-01-01T00:00",
+                 "quality":"NO_HISTORY","historicalOverduePeriods":0,"currentOverduePeriods":0,
+                 "latestRecordId":null,"latestPlanId":null,"latestPayment":"NONE",
+                 "evidence":["NO_PLANS_OR_PAYMENTS"]}
+                """), json.at("/featureSnapshot/extra/behaviorFacts"));
+        assertEquals("behavior-v1", json.at("/featureSnapshot/extra/behaviorDetails/version").asText());
+        assertEquals("NO_HISTORY", json.at("/featureSnapshot/extra/behaviorDetails/quality").asText());
+        assertEquals(json.at("/breakdown/ahp"), json.at("/featureSnapshot/extra/ahp"));
+        assertEquals(3, json.at("/featureSnapshot/extra/ahp/matrix").size());
+        assertEquals(3, ((Map<?, ?>) ((Map<?, ?>) original.getBreakdown().get("ahp")).get("weights")).size());
+        doThrow(new IllegalStateException("live repayment database unavailable")).when(behaviorQuery).query(anyString());
+        ReflectionTestUtils.setField(orchestrator, "behaviorPassMinPoints", 100);
+        ReflectionTestUtils.setField(woe, "enabled", false);
+        liveLpr.put("lpr5y", 9.0);
+        assertHttpReplayEquals(original);
     }
 }

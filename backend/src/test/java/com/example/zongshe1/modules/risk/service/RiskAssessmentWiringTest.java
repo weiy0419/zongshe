@@ -68,7 +68,7 @@ class RiskAssessmentWiringTest {
         ReflectionTestUtils.setField(scoring, "enabled", true);
         ReflectionTestUtils.setField(scoring, "passMinPoints", 40);
         List<RiskRuleEvaluator> rules = List.of(basic, scoring);
-        orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current, new com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel(), new com.example.zongshe1.modules.risk.service.ahp.AhpFusionService(new com.example.zongshe1.modules.risk.service.ahp.AhpMatrixBuilder(), new com.example.zongshe1.modules.risk.service.ahp.AhpWeightCalculator()));
+        orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current, new com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel(), new com.example.zongshe1.modules.risk.service.ahp.AhpFusionService(new com.example.zongshe1.modules.risk.service.ahp.AhpMatrixBuilder(), new com.example.zongshe1.modules.risk.service.ahp.AhpWeightCalculator()), mock(com.example.zongshe1.modules.risk.feature.BehaviorFeatureQueryService.class), new com.example.zongshe1.modules.risk.service.scoring.BehaviorScoreEngine());
         service = new RiskServiceImpl(rules, applications, users, reports, features, current,
                 new ObjectMapper().findAndRegisterModules(), products, orchestrator, dedup,
                 new RiskReportAssembler(), mock(RiskDecisionEventService.class));
@@ -185,6 +185,15 @@ class RiskAssessmentWiringTest {
         next.setUser(user);
         next.setLoanAmount(new BigDecimal("10001"));
         next.setLoanTerm(12);
+        when(features.build(user, next)).thenAnswer(i -> {
+            FeatureSnapshot live = new FeatureSnapshot();
+            live.put("credit_score", user.getCreditScore());
+            live.put("user_status", user.getUserStatus());
+            live.put("loan_amount", next.getLoanAmount());
+            live.put("credit_overdue_count", 0);
+            live.put("telecom_online_months", 24);
+            return live;
+        });
         request.setApplicationId(102L);
         request.setProductId(7L);
         when(applications.findById(102L)).thenReturn(Optional.of(next));
@@ -198,7 +207,7 @@ class RiskAssessmentWiringTest {
         assertEquals(cached.assessedAt(), report.getAssessedAt());
         assertEquals(new BigDecimal("10000"), report.getFeatureSnapshot().getLoanAmount());
         assertEquals(true, ((Map<?, ?>) report.getBreakdown().get("dedup")).get("reused"));
-        verifyNoInteractions(features);
+        verify(features).build(user, next);
         verify(reports).save(any());
     }
 

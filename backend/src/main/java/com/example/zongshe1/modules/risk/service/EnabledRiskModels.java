@@ -9,7 +9,7 @@ public final class EnabledRiskModels {
     public static List<String> normalize(List<String> models) {
         if (models == null) return List.of("WOE");
         for (String model : models) {
-            if (!"WOE".equals(model) && !"EXTERNAL".equals(model)) {
+            if (!"WOE".equals(model) && !"EXTERNAL".equals(model) && !"BEHAVIOR".equals(model)) {
                 throw new IllegalArgumentException("Unknown credit model: " + model);
             }
         }

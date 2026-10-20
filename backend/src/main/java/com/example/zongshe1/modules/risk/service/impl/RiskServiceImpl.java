@@ -21,6 +21,8 @@ import com.example.zongshe1.modules.risk.service.RiskDecisionEventService;
 import com.example.zongshe1.modules.risk.service.TwoStageRiskOrchestrator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -117,13 +119,15 @@ public class RiskServiceImpl implements RiskService {
                     () -> twoStageRiskOrchestrator.assess(user, application, enabledModels));
             result = lookup.result();
             boolean reused = lookup.reused();
-            // 复用前至少确认可直接读取的准入输入未变，避免账户停用或信用分变化后沿用旧结论。
-            if (reused && (!sameInteger(result.features().get("credit_score"), user.getCreditScore())
-                    || !sameInteger(result.features().get("user_status"), user.getUserStatus()))) {
-                log.info("风控缓存不适用，重新计算：applicationId={}，原因=USER_INPUT_CHANGED", application.getId());
-                result = twoStageRiskOrchestrator.assess(user, application, enabledModels);
-                reused = false;
-                dedup.put("skipped", "USER_INPUT_CHANGED");
+            // Cached credit must never bypass today's admission rules. Behavior is always refreshed.
+            if (reused) {
+                boolean userChanged = !sameInteger(result.features().get("credit_score"), user.getCreditScore())
+                        || !sameInteger(result.features().get("user_status"), user.getUserStatus());
+                TwoStageRiskOrchestrator.Result validated = twoStageRiskOrchestrator.revalidate(
+                        user, application, enabledModels, result);
+                reused = validated == result;
+                result = validated;
+                if (!reused) dedup.put("skipped", userChanged ? "USER_INPUT_CHANGED" : "LIVE_EVIDENCE_REEVALUATED");
             }
             dedup.put("enabled", true);
             dedup.put("reused", reused);
@@ -140,6 +144,14 @@ public class RiskServiceImpl implements RiskService {
         RiskReport entity = riskReportRepository.findForAssessment(application.getId())
                 .orElseGet(RiskReport::new);
         String previousDetailsJson = entity.getDetailsJson();
+
+        // A computation cache hit may belong to another application or assessment.
+        // Only decorate an identical persisted snapshot; never dirty its managed entity.
+        if (entity.getId() != null && Boolean.TRUE.equals(dedup.get("reused"))) {
+            report.setReportId(entity.getId());
+            RiskReportDTO reusedReport = reusePersistedReport(previousDetailsJson, report);
+            if (reusedReport != null) return reusedReport;
+        }
 
         entity.setLoanApplication(application);
 
@@ -172,6 +184,34 @@ public class RiskServiceImpl implements RiskService {
 
         decisionEvents.afterReportPersisted(previousDetailsJson, report);
         return report;
+    }
+
+    private RiskReportDTO reusePersistedReport(String json, RiskReportDTO candidate) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            JsonNode persisted = objectMapper.readTree(json);
+            JsonNode current = objectMapper.readTree(serializeAssessmentReport(candidate));
+            // Compare identities, model configuration, evidence, scores and timestamp.
+            // Only this request's reuse flag is allowed to differ.
+            if (!(persisted.path("breakdown").path("dedup") instanceof ObjectNode oldDedup)
+                    || !(current.path("breakdown").path("dedup") instanceof ObjectNode newDedup)) {
+                return null;
+            }
+            oldDedup.remove("reused");
+            newDedup.remove("reused");
+            if (!persisted.equals(current)) return null;
+
+            RiskReportDTO response = objectMapper.readValue(json, RiskReportDTO.class);
+            Map<String, Object> responseDedup = new LinkedHashMap<>();
+            ((Map<?, ?>) response.getBreakdown().get("dedup"))
+                    .forEach((key, value) -> responseDedup.put((String) key, value));
+            responseDedup.put("reused", true);
+            response.getBreakdown().put("dedup", responseDedup);
+            return response;
+        } catch (JsonProcessingException exception) {
+            // Legacy/unreadable snapshots cannot establish identity; retain reassessment behavior.
+            return null;
+        }
     }
 
     private String serializeAssessmentReport(RiskReportDTO report) {

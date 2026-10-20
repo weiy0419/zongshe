@@ -62,6 +62,8 @@ class RiskWeek4AcceptanceTest {
     private User user;
     private FeatureContextService features;
     private WoeScoringCardEngine woe;
+    private final com.example.zongshe1.modules.risk.feature.BehaviorFeatureQueryService behaviorQuery =
+            mock(com.example.zongshe1.modules.risk.feature.BehaviorFeatureQueryService.class);
     private MockMvc mvc;
 
     @BeforeEach
@@ -127,7 +129,7 @@ class RiskWeek4AcceptanceTest {
         ReflectionTestUtils.setField(scoring, "enabled", true);
         ReflectionTestUtils.setField(scoring, "passMinPoints", 40);
         List<RiskRuleEvaluator> rules = List.of(basic, scoring);
-        TwoStageRiskOrchestrator orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current, new com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel(), new com.example.zongshe1.modules.risk.service.ahp.AhpFusionService(new com.example.zongshe1.modules.risk.service.ahp.AhpMatrixBuilder(), new com.example.zongshe1.modules.risk.service.ahp.AhpWeightCalculator()));
+        TwoStageRiskOrchestrator orchestrator = new TwoStageRiskOrchestrator(rules, scoring, features, current, new com.example.zongshe1.modules.risk.service.scoring.ExternalPublicModel(), new com.example.zongshe1.modules.risk.service.ahp.AhpFusionService(new com.example.zongshe1.modules.risk.service.ahp.AhpMatrixBuilder(), new com.example.zongshe1.modules.risk.service.ahp.AhpWeightCalculator()), behaviorQuery, new com.example.zongshe1.modules.risk.service.scoring.BehaviorScoreEngine());
         RiskReportRepository reports = mock(RiskReportRepository.class);
         Map<Long, com.example.zongshe1.modules.risk.entity.RiskReport> persistedReports =
                 new HashMap<>();
@@ -211,7 +213,7 @@ class RiskWeek4AcceptanceTest {
         ((ObjectNode) comparableSecond.at("/breakdown/dedup")).put("reused", false);
         assertEquals(first, comparableSecond);
         verify(woe, times(1)).evaluate(any(), any());
-        verify(features, times(1)).build(any(), any());
+        verify(features, times(2)).build(any(), any());
         assertEquals(1, cache.size());
         assertEquals(List.of(120L), List.copyOf(expiresAt.values()));
         System.out.println("WEEK4_FIRST=" + first);
@@ -228,6 +230,29 @@ class RiskWeek4AcceptanceTest {
         assertFalse(disabled.at("/breakdown/dedup/reused").asBoolean());
         verify(woe, times(1)).evaluate(any(), any());
         verify(features, times(2)).build(any(), any());
+    }
+
+    @Test
+    void changedModelSetCannotReuseOldFusionFromCache() throws Exception {
+        user.setUserId("BUSINESS-2");
+        when(behaviorQuery.query("BUSINESS-2")).thenReturn(new com.example.zongshe1.modules.risk.feature.BehaviorFeatureSnapshot(
+                "BUSINESS-2", java.time.LocalDateTime.of(2026, 1, 1, 0, 0),
+                com.example.zongshe1.modules.risk.feature.BehaviorFeatureSnapshot.DataQuality.NO_HISTORY,
+                0, 0, null, null,
+                com.example.zongshe1.modules.risk.feature.BehaviorFeatureSnapshot.LatestPayment.NONE, List.of()));
+        List<List<String>> selections = List.of(List.of("WOE", "EXTERNAL"),
+                List.of("WOE", "EXTERNAL", "BEHAVIOR"), List.of("WOE", "BEHAVIOR"));
+        for (var models : selections) {
+            var result = assess(mapper.writeValueAsString(Map.of("applicationId", 101, "productId", 7,
+                    "enabledModels", models)));
+            assertFalse(result.at("/breakdown/dedup/reused").asBoolean());
+            assertEquals("AHP", result.at("/breakdown/fusionMode").asText());
+            assertEquals(mapper.valueToTree(models), result.at("/breakdown/enabledModels"));
+            assertEquals(models.size(), result.at("/breakdown/ahp/weights").size());
+        }
+        assertEquals(3, cache.size());
+        verify(woe, times(3)).evaluate(any(), any());
+        verify(behaviorQuery, times(2)).query("BUSINESS-2");
     }
 
     @Test

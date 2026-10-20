@@ -35,11 +35,29 @@ public class AhpMatrixBuilder {
         if (!Boolean.FALSE.equals(snapshot.get("stale"))) external = Math.max(1, external - staleDiscount);
         int woe = 1 + (credit == null ? 0 : 1 + (credit < creditRiskCutoff ? 2 : 0))
                 + (overdue == null ? 0 : (int) Math.min(2, Math.floor(overdue)));
+        Map<?, ?> behaviorFacts = snapshot.get("behaviorFacts") instanceof Map<?, ?> facts ? facts : Map.of();
+        int behavior = 0;
+        if (models.contains("BEHAVIOR")) {
+            Object quality = behaviorFacts.get("quality");
+            Double history = number(behaviorFacts.get("historicalOverduePeriods"));
+            Double current = number(behaviorFacts.get("currentOverduePeriods"));
+            Object payment = behaviorFacts.get("latestPayment");
+            if (!("NO_HISTORY".equals(quality) || "AVAILABLE".equals(quality))
+                    || history == null || current == null || history < current
+                    || !("FULL".equals(payment) || "NOT_FULL".equals(payment) || "NONE".equals(payment)))
+                throw new IllegalArgumentException("BEHAVIOR requires complete or explicit no-history evidence");
+            // More proven adverse history increases attention to behavior, not its credit score.
+            // Fresh macro pressure also increases attention to repayment capacity, including WOE+BEHAVIOR.
+            int macroPressure = Boolean.FALSE.equals(snapshot.get("stale")) ? Math.min(2, external - 1) : 0;
+            behavior = "NO_HISTORY".equals(quality) ? 1
+                    : 2 + (int) Math.min(3, history) + ("NOT_FULL".equals(payment) ? 2 : 0) + macroPressure;
+        }
         Map<String, Integer> importance = new LinkedHashMap<>();
         for (String model : models) {
             importance.put(model, switch (model) {
                 case "WOE" -> woe;
                 case "EXTERNAL" -> external;
+                case "BEHAVIOR" -> behavior;
                 default -> throw new IllegalArgumentException("No AHP importance rule for " + model);
             });
         }
@@ -64,6 +82,12 @@ public class AhpMatrixBuilder {
                 + "WOE=1+creditAvailable+2*lowCredit+min(2,overdue); pair=1+abs(importance difference), reciprocal if negative");
         source.put("fallbackReason", missing ? "MISSING_LPR" : "NONE");
         source.put("version", "snapshot-saaty-v1");
+        if (models.contains("BEHAVIOR")) {
+            source.put("behaviorFacts", new LinkedHashMap<>(behaviorFacts));
+            source.put("behaviorFormula", "NO_HISTORY=1; AVAILABLE=2+min(3,historicalOverduePeriods)"
+                    + "+2*latestNotFull+fresh*min(2,EXTERNAL_importance-1); no unproven history is used");
+            source.put("version", "snapshot-saaty-behavior-v2");
+        }
         return new MatrixInput(models, List.copyOf(matrix), source);
     }
 

@@ -77,6 +77,8 @@ class RiskWeek6MqTest {
     void setup() {
         eventLogs.start();
         eventLogger.addAppender(eventLogs);
+        when(orchestrator.revalidate(any(), any(), anyList(), any()))
+                .thenAnswer(i -> i.getArgument(3));
         user.setId(2L);
         user.setCreditScore(720);
         user.setUserStatus(1);
@@ -155,6 +157,38 @@ class RiskWeek6MqTest {
         assertEquals(report, persisted);
         assertThrows(UnsupportedOperationException.class, () -> message.put("decision", "REJECTED"));
         verify(reports).flush();
+    }
+
+    @Test
+    void repeatedCacheHitDecoratesResponseWithoutChangingSnapshotOrPublishing() throws Exception {
+        when(products.existsById(7L)).thenReturn(true);
+        when(dedup.assess(eq(2L), eq(7L), any(), anyList(), any()))
+                .thenReturn(new RiskAssessmentDedupService.Lookup(result("APPROVED"), false),
+                        new RiskAssessmentDedupService.Lookup(result("APPROVED"), true));
+        RiskAssessmentRequest request = request();
+        request.setProductId(7L);
+        RiskReportDTO first = service.assess(request);
+        String originalJson = stored.get(101L).getDetailsJson();
+        clearInvocations(reports, publisher);
+
+        RiskReportDTO repeated = service.assess(request);
+
+        assertEquals(true, ((Map<?, ?>) repeated.getBreakdown().get("dedup")).get("reused"));
+        assertEquals(first.getReportId(), repeated.getReportId());
+        assertEquals(first.getTotalScore(), repeated.getTotalScore());
+        assertEquals(first.getDecision(), repeated.getDecision());
+        assertEquals(first.getAssessedAt(), repeated.getAssessedAt());
+        assertEquals(1, stored.size());
+        assertEquals(originalJson, stored.get(101L).getDetailsJson());
+        assertEquals(first, service.getRiskReportDTOByApplicationId(101L));
+        RiskReportDTO replay = service.replay(first.getReportId());
+        assertEquals(false, ((Map<?, ?>) replay.getBreakdown().get("dedup")).get("reused"));
+        assertEquals(first.getAssessedAt(), replay.getAssessedAt());
+        assertEquals(originalJson, stored.get(101L).getDetailsJson());
+        verify(reports, never()).save(any());
+        verify(reports, never()).flush();
+        verifyNoInteractions(publisher);
+        assertEquals(1, messages.size());
     }
 
     @Test
@@ -345,7 +379,10 @@ class RiskWeek6MqTest {
         request.setApplicationId(102L);
         service.assess(request);
         assertEquals(List.of(101L, 102L), messages.stream().map(m -> m.get("applicationId")).toList());
-        verifyNoInteractions(orchestrator);
+        assertEquals(2, stored.size());
+        assertNotEquals(stored.get(101L).getId(), stored.get(102L).getId());
+        verify(orchestrator, times(2)).revalidate(eq(user), any(), anyList(), any());
+        verify(orchestrator, never()).assess(any(), any(), anyList());
     }
 
     @ParameterizedTest
